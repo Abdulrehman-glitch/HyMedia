@@ -4,6 +4,7 @@ import morgan from "morgan";
 
 import { env, isProduction } from "./config/env.js";
 import healthRoutes from "./routes/healthRoutes.js";
+import assetRoutes from "./routes/assetRoutes.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 
 const app = express();
@@ -27,11 +28,22 @@ app.get("/", (req, res) => {
     success: true,
     message: "HyMedia Backend API is running.",
     documentation: "/api/v1/health",
+    apiBase: "/api/v1",
+    availableEndpoints: [
+      "GET /api/v1/health",
+      "GET /api/v1/assets",
+      "GET /api/v1/assets/stats",
+      "GET /api/v1/assets/:assetId",
+      "POST /api/v1/assets",
+      "PUT /api/v1/assets/:assetId",
+      "DELETE /api/v1/assets/:assetId"
+    ],
     timestamp: new Date().toISOString()
   });
 });
 
 app.use("/api/v1", healthRoutes);
+app.use("/api/v1", assetRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
