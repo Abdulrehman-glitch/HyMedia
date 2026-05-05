@@ -6,7 +6,7 @@ import MediaPreview from "../components/MediaPreview";
 import StatusBadge from "../components/StatusBadge";
 import { deleteAsset, getAssetById, updateAsset } from "../services/assetService";
 import type { Asset, MediaType, Visibility } from "../types/asset";
-import { formatDate, formatTags, titleCase } from "../utils/formatters";
+import { formatDate, formatTaggedUsers, formatTags, titleCase } from "../utils/formatters";
 
 export default function AssetDetail() {
   const { assetId } = useParams();
@@ -14,10 +14,16 @@ export default function AssetDetail() {
 
   const [asset, setAsset] = useState<Asset | null>(null);
   const [title, setTitle] = useState("");
+  const [caption, setCaption] = useState("");
   const [description, setDescription] = useState("");
-  const [tags, setTags] = useState("");
+  const [hashtags, setHashtags] = useState("");
+  const [taggedUsers, setTaggedUsers] = useState("");
+  const [locationName, setLocationName] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("PUBLIC");
   const [mediaType, setMediaType] = useState<MediaType>("image");
+  const [isSensitive, setIsSensitive] = useState(false);
+  const [isAdult18Plus, setIsAdult18Plus] = useState(false);
+  const [allowComments, setAllowComments] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -35,12 +41,18 @@ export default function AssetDetail() {
 
       setAsset(loadedAsset);
       setTitle(loadedAsset.title);
-      setDescription(loadedAsset.description);
-      setTags(loadedAsset.tags.join(","));
+      setCaption(loadedAsset.caption || "");
+      setDescription(loadedAsset.description || "");
+      setHashtags((loadedAsset.hashtags || loadedAsset.tags || []).join(","));
+      setTaggedUsers((loadedAsset.taggedUsers || []).join(","));
+      setLocationName(loadedAsset.locationName || "");
       setVisibility(loadedAsset.visibility);
       setMediaType(loadedAsset.mediaType);
+      setIsSensitive(Boolean(loadedAsset.isSensitive));
+      setIsAdult18Plus(Boolean(loadedAsset.isAdult18Plus));
+      setAllowComments(Boolean(loadedAsset.allowComments));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load asset.");
+      setError(err instanceof Error ? err.message : "Failed to load HyMedia post.");
     } finally {
       setLoading(false);
     }
@@ -61,15 +73,21 @@ export default function AssetDetail() {
 
       const response = await updateAsset(assetId, {
         title,
+        caption,
         description,
-        tags,
+        hashtags,
+        taggedUsers,
+        locationName,
         visibility,
-        mediaType
+        mediaType,
+        isSensitive,
+        isAdult18Plus,
+        allowComments
       });
 
       setAsset(response.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update asset.");
+      setError(err instanceof Error ? err.message : "Failed to update HyMedia post.");
     } finally {
       setSaving(false);
     }
@@ -78,7 +96,7 @@ export default function AssetDetail() {
   async function handleDelete() {
     if (!assetId) return;
 
-    const confirmed = window.confirm("Delete this asset metadata record?");
+    const confirmed = window.confirm("Delete this HyMedia media post?");
     if (!confirmed) return;
 
     try {
@@ -88,21 +106,21 @@ export default function AssetDetail() {
       await deleteAsset(assetId);
       navigate("/gallery");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete asset.");
+      setError(err instanceof Error ? err.message : "Failed to delete HyMedia post.");
     } finally {
       setDeleting(false);
     }
   }
 
   if (loading) {
-    return <LoadingState message="Loading asset details..." />;
+    return <LoadingState message="Loading HyMedia post..." />;
   }
 
   if (error && !asset) {
     return (
       <section className="page">
         <ErrorBanner message={error} />
-        <Link to="/gallery" className="button button-secondary">Back to Gallery</Link>
+        <Link to="/gallery" className="button button-secondary">Back to Feed</Link>
       </section>
     );
   }
@@ -111,8 +129,8 @@ export default function AssetDetail() {
     return (
       <section className="page">
         <div className="empty-state">
-          <h3>Asset not found</h3>
-          <Link to="/gallery" className="button button-secondary">Back to Gallery</Link>
+          <h3>HyMedia post not found</h3>
+          <Link to="/gallery" className="button button-secondary">Back to Feed</Link>
         </div>
       </section>
     );
@@ -130,11 +148,14 @@ export default function AssetDetail() {
               label={asset.processingStatus}
               tone={asset.processingStatus === "READY" ? "success" : "warning"}
             />
-            <StatusBadge label={asset.visibility} />
+            <StatusBadge label={titleCase(asset.visibility)} />
+            {asset.visibility === "CREATOR_PREMIUM" && <StatusBadge label="Premium" tone="warning" />}
+            {asset.isSensitive && <StatusBadge label="Sensitive" tone="danger" />}
+            {asset.isAdult18Plus && <StatusBadge label="18+" tone="danger" />}
           </div>
 
           <h2>{asset.title}</h2>
-          <p>{asset.description}</p>
+          <p>{asset.caption || asset.description}</p>
 
           <dl className="details-list">
             <div>
@@ -142,20 +163,24 @@ export default function AssetDetail() {
               <dd>{asset.id}</dd>
             </div>
             <div>
-              <dt>Owner</dt>
-              <dd>{asset.ownerId}</dd>
+              <dt>Hashtags</dt>
+              <dd>{formatTags(asset.hashtags || asset.tags)}</dd>
             </div>
             <div>
-              <dt>File Name</dt>
-              <dd>{asset.fileName || "Not available"}</dd>
+              <dt>Tagged Users</dt>
+              <dd>{formatTaggedUsers(asset.taggedUsers)}</dd>
+            </div>
+            <div>
+              <dt>Location</dt>
+              <dd>{asset.locationName || "No location"}</dd>
             </div>
             <div>
               <dt>Blob URL</dt>
               <dd>{asset.blobUrl || "Pending Azure Blob integration"}</dd>
             </div>
             <div>
-              <dt>Tags</dt>
-              <dd>{formatTags(asset.tags)}</dd>
+              <dt>Engagement</dt>
+              <dd>Likes: {asset.engagement?.likeCount ?? 0} | Comments: {asset.allowComments ? asset.engagement?.commentCount ?? 0 : "Disabled"}</dd>
             </div>
             <div>
               <dt>Created</dt>
@@ -165,7 +190,7 @@ export default function AssetDetail() {
         </div>
 
         <form className="form-panel" onSubmit={handleUpdate}>
-          <h3>Edit Metadata</h3>
+          <h3>Edit HyMedia Metadata</h3>
 
           {error && <ErrorBanner message={error} />}
 
@@ -175,17 +200,32 @@ export default function AssetDetail() {
           </label>
 
           <label>
+            Caption
+            <input value={caption} onChange={(event) => setCaption(event.target.value)} />
+          </label>
+
+          <label>
             Description
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              rows={4}
+              rows={3}
             />
           </label>
 
           <label>
-            Tags
-            <input value={tags} onChange={(event) => setTags(event.target.value)} />
+            Hashtags
+            <input value={hashtags} onChange={(event) => setHashtags(event.target.value)} />
+          </label>
+
+          <label>
+            Tagged Users
+            <input value={taggedUsers} onChange={(event) => setTaggedUsers(event.target.value)} />
+          </label>
+
+          <label>
+            Location
+            <input value={locationName} onChange={(event) => setLocationName(event.target.value)} />
           </label>
 
           <label>
@@ -199,13 +239,31 @@ export default function AssetDetail() {
           </label>
 
           <label>
-            Visibility
+            Privacy
             <select value={visibility} onChange={(event) => setVisibility(event.target.value as Visibility)}>
               <option value="PUBLIC">Public</option>
-              <option value="PRIVATE">Private</option>
-              <option value="UNLISTED">Unlisted</option>
+              <option value="PRIVATE_SELECTED">Private to Selected</option>
+              <option value="UNLISTED_LINK">Unlisted Link</option>
+              <option value="CREATOR_PREMIUM">Creator Premium</option>
             </select>
           </label>
+
+          <div className="toggle-grid">
+            <label className="checkbox-row">
+              <input type="checkbox" checked={isSensitive} onChange={(event) => setIsSensitive(event.target.checked)} />
+              Sensitive
+            </label>
+
+            <label className="checkbox-row">
+              <input type="checkbox" checked={isAdult18Plus} onChange={(event) => setIsAdult18Plus(event.target.checked)} />
+              18+
+            </label>
+
+            <label className="checkbox-row">
+              <input type="checkbox" checked={allowComments} onChange={(event) => setAllowComments(event.target.checked)} />
+              Allow comments
+            </label>
+          </div>
 
           <div className="form-actions">
             <button className="button button-primary" disabled={saving} type="submit">

@@ -38,7 +38,7 @@ export default function Dashboard() {
   }, []);
 
   if (loading) {
-    return <LoadingState message="Loading dashboard and backend status..." />;
+    return <LoadingState message="Loading HyMedia dashboard..." />;
   }
 
   return (
@@ -51,14 +51,15 @@ export default function Dashboard() {
           />
           <h2>HyMedia Dashboard</h2>
           <p>
-            A cloud-native multimedia platform for uploading, storing, managing and
-            retrieving media assets using Azure-ready APIs.
+            HyMedia is a cloud-native multimedia sharing platform for images,
+            videos, audio and GIFs with privacy controls, sensitive-content
+            metadata, creator-premium visibility and Azure-ready media storage.
           </p>
         </div>
 
         <div className="hero-actions">
-          <Link to="/upload" className="button button-primary">Upload Asset</Link>
-          <Link to="/gallery" className="button button-secondary">View Gallery</Link>
+          <Link to="/upload" className="button button-primary">Upload Media Post</Link>
+          <Link to="/gallery" className="button button-secondary">View Feed</Link>
         </div>
       </div>
 
@@ -66,7 +67,7 @@ export default function Dashboard() {
 
       <div className="stats-grid">
         <div className="stat-card">
-          <span>Total Assets</span>
+          <span>Total Posts</span>
           <strong>{stats?.totalAssets ?? 0}</strong>
         </div>
 
@@ -81,18 +82,40 @@ export default function Dashboard() {
         </div>
 
         <div className="stat-card">
-          <span>Public Assets</span>
-          <strong>{stats?.byVisibility?.PUBLIC ?? 0}</strong>
+          <span>Premium Posts</span>
+          <strong>{stats?.premiumCount ?? 0}</strong>
+        </div>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card">
+          <span>Sensitive Posts</span>
+          <strong>{stats?.sensitiveCount ?? 0}</strong>
+        </div>
+
+        <div className="stat-card">
+          <span>18+ Posts</span>
+          <strong>{stats?.adultCount ?? 0}</strong>
+        </div>
+
+        <div className="stat-card">
+          <span>Private Selected</span>
+          <strong>{stats?.byVisibility?.PRIVATE_SELECTED ?? 0}</strong>
+        </div>
+
+        <div className="stat-card">
+          <span>Unlisted Links</span>
+          <strong>{stats?.byVisibility?.UNLISTED_LINK ?? 0}</strong>
         </div>
       </div>
 
       <div className="content-panel">
-        <h3>Latest Asset</h3>
+        <h3>Latest Feed Item</h3>
         {stats?.latestAsset ? (
           <div className="latest-asset">
             <div>
               <strong>{stats.latestAsset.title}</strong>
-              <p>{stats.latestAsset.description}</p>
+              <p>{stats.latestAsset.caption || stats.latestAsset.description}</p>
               <small>Created: {formatDate(stats.latestAsset.createdAt)}</small>
             </div>
             <Link to={"/assets/" + stats.latestAsset.id} className="button button-secondary">
@@ -100,7 +123,7 @@ export default function Dashboard() {
             </Link>
           </div>
         ) : (
-          <p>No assets uploaded yet.</p>
+          <p>No media posts uploaded yet.</p>
         )}
       </div>
     </section>

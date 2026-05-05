@@ -33,8 +33,10 @@ app.get("/", (req, res) => {
       "GET /api/v1/health",
       "GET /api/v1/assets",
       "GET /api/v1/assets/stats",
+      "GET /api/v1/assets/upload-rules",
       "GET /api/v1/assets/:assetId",
       "POST /api/v1/assets",
+      "POST /api/v1/assets/upload",
       "PUT /api/v1/assets/:assetId",
       "DELETE /api/v1/assets/:assetId"
     ],

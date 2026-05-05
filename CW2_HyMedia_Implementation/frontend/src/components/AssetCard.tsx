@@ -22,15 +22,24 @@ export default function AssetCard({ asset }: AssetCardProps) {
             label={asset.processingStatus}
             tone={asset.processingStatus === "READY" ? "success" : "warning"}
           />
+          {asset.visibility === "CREATOR_PREMIUM" && <StatusBadge label="Premium" tone="warning" />}
+          {asset.isSensitive && <StatusBadge label="Sensitive" tone="danger" />}
+          {asset.isAdult18Plus && <StatusBadge label="18+" tone="danger" />}
         </div>
 
         <h3>{asset.title}</h3>
-        <p>{asset.description || "No description provided."}</p>
+        <p>{asset.caption || asset.description || "No caption provided."}</p>
 
-        <div className="asset-tags">{formatTags(asset.tags)}</div>
+        <div className="asset-tags">{formatTags(asset.hashtags || asset.tags)}</div>
 
         <div className="asset-meta">
-          <span>{asset.visibility}</span>
+          <span>{titleCase(asset.visibility)}</span>
+          <span>{asset.locationName || "No location"}</span>
+        </div>
+
+        <div className="asset-meta">
+          <span>♥ {asset.engagement?.likeCount ?? 0}</span>
+          <span>💬 {asset.allowComments ? asset.engagement?.commentCount ?? 0 : "Off"}</span>
           <span>{formatDate(asset.createdAt)}</span>
         </div>
 

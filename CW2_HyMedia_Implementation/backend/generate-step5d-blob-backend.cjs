@@ -1,3 +1,197 @@
+const fs = require("fs");
+
+function ensureDir(dirPath) {
+  fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function writeFile(filePath, content) {
+  fs.writeFileSync(filePath, content.trimStart(), "utf8");
+  console.log("Updated " + filePath);
+}
+
+console.log("Generating Step 5D Azure Blob Storage backend integration...");
+
+ensureDir("src/config");
+ensureDir("src/services");
+ensureDir("src/middleware");
+ensureDir("src/utils");
+ensureDir("src/controllers");
+ensureDir("src/routes");
+
+writeFile("src/config/blobClient.js", `
+import { BlobServiceClient } from "@azure/storage-blob";
+import { env } from "./env.js";
+
+export const getBlobContainerClient = async () => {
+  if (!env.azureStorageConnectionString) {
+    const error = new Error("Azure Storage connection string is missing. Check AZURE_STORAGE_CONNECTION_STRING in .env.");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const blobServiceClient = BlobServiceClient.fromConnectionString(
+    env.azureStorageConnectionString
+  );
+
+  const containerClient = blobServiceClient.getContainerClient(
+    env.azureStorageContainerName
+  );
+
+  await containerClient.createIfNotExists();
+
+  return containerClient;
+};
+`);
+
+writeFile("src/utils/fileValidation.js", `
+const maxFileSizeBytes = 25 * 1024 * 1024;
+
+const allowedMimeTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+  "image/tiff",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "video/x-matroska",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/aac",
+  "audio/mp4",
+  "audio/ogg"
+]);
+
+const mimeToMediaType = {
+  "image/jpeg": "image",
+  "image/png": "image",
+  "image/gif": "gif",
+  "image/webp": "image",
+  "image/bmp": "image",
+  "image/tiff": "image",
+  "video/mp4": "video",
+  "video/quicktime": "video",
+  "video/webm": "video",
+  "video/x-matroska": "video",
+  "audio/mpeg": "audio",
+  "audio/wav": "audio",
+  "audio/x-wav": "audio",
+  "audio/aac": "audio",
+  "audio/mp4": "audio",
+  "audio/ogg": "audio"
+};
+
+export const validateUploadedFile = (file) => {
+  const errors = [];
+
+  if (!file) {
+    errors.push("Media file is required.");
+    return {
+      isValid: false,
+      errors
+    };
+  }
+
+  if (file.size > maxFileSizeBytes) {
+    errors.push("File size must not exceed 25MB for the coursework demo.");
+  }
+
+  if (!allowedMimeTypes.has(file.mimetype)) {
+    errors.push("Unsupported file type. HyMedia supports images, GIFs, videos and audio files.");
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+export const detectMediaType = (mimeType) => {
+  return mimeToMediaType[mimeType] || "image";
+};
+
+export const getAllowedUploadSummary = () => {
+  return {
+    maxFileSizeMb: 25,
+    supportedTypes: [
+      "Images: JPG, JPEG, PNG, GIF, WEBP, BMP, TIFF",
+      "Videos: MP4, MOV, WEBM, MKV",
+      "Audio: MP3, WAV, AAC/M4A, OGG"
+    ]
+  };
+};
+`);
+
+writeFile("src/middleware/uploadMiddleware.js", `
+import multer from "multer";
+
+const storage = multer.memoryStorage();
+
+export const uploadSingleMedia = multer({
+  storage,
+  limits: {
+    fileSize: 25 * 1024 * 1024
+  }
+}).single("file");
+`);
+
+writeFile("src/services/blobService.js", `
+import path from "path";
+import { getBlobContainerClient } from "../config/blobClient.js";
+
+const cleanFileName = (fileName) => {
+  const parsed = path.parse(fileName);
+  const safeBase = parsed.name
+    .replace(/[^a-zA-Z0-9-_]/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase()
+    .slice(0, 80);
+
+  const safeExt = parsed.ext.toLowerCase();
+
+  return (safeBase || "media-file") + safeExt;
+};
+
+export const uploadFileToBlob = async ({ file, assetId, ownerId }) => {
+  const containerClient = await getBlobContainerClient();
+
+  const safeFileName = cleanFileName(file.originalname);
+  const timestamp = Date.now();
+
+  const blobName = [
+    "assets",
+    ownerId || "demo_user",
+    assetId,
+    "original-" + timestamp + "-" + safeFileName
+  ].join("/");
+
+  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+
+  await blockBlobClient.uploadData(file.buffer, {
+    blobHTTPHeaders: {
+      blobContentType: file.mimetype
+    },
+    metadata: {
+      assetId,
+      ownerId: ownerId || "demo_user",
+      originalFileName: file.originalname
+    }
+  });
+
+  return {
+    blobName,
+    blobUrl: blockBlobClient.url,
+    fileName: file.originalname,
+    mimeType: file.mimetype,
+    sizeBytes: file.size
+  };
+};
+`);
+
+writeFile("src/services/assetService.js", `
 import { generateAssetId } from "../utils/idGenerator.js";
 import {
   validateCreateAssetPayload,
@@ -363,3 +557,230 @@ export const getAssetStats = () => {
     latestAsset: sortNewestFirst(assets)[0] || null
   };
 };
+`);
+
+writeFile("src/controllers/assetController.js", `
+import {
+  createAsset,
+  createAssetFromUpload,
+  deleteAsset,
+  getAllAssets,
+  getAssetById,
+  getAssetStats,
+  updateAsset
+} from "../services/assetService.js";
+import { getAllowedUploadSummary } from "../utils/fileValidation.js";
+
+const sendSuccess = (res, statusCode, message, data, meta = undefined) => {
+  const response = {
+    success: true,
+    message,
+    data
+  };
+
+  if (meta) {
+    response.meta = meta;
+  }
+
+  return res.status(statusCode).json(response);
+};
+
+export const listAssets = (req, res, next) => {
+  try {
+    const assets = getAllAssets({
+      mediaType: req.query.mediaType,
+      tag: req.query.tag,
+      search: req.query.search,
+      location: req.query.location
+    });
+
+    return sendSuccess(res, 200, "HyMedia feed assets retrieved successfully.", assets, {
+      count: assets.length,
+      filters: {
+        mediaType: req.query.mediaType || null,
+        tag: req.query.tag || null,
+        search: req.query.search || null,
+        location: req.query.location || null
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAsset = (req, res, next) => {
+  try {
+    const asset = getAssetById(req.params.assetId);
+
+    if (!asset) {
+      const error = new Error("HyMedia asset not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return sendSuccess(res, 200, "HyMedia asset retrieved successfully.", asset);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createNewAsset = (req, res, next) => {
+  try {
+    const asset = createAsset(req.body);
+
+    return sendSuccess(res, 201, "HyMedia media post created successfully.", asset);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const uploadNewAsset = async (req, res, next) => {
+  try {
+    const asset = await createAssetFromUpload({
+      file: req.file,
+      payload: req.body
+    });
+
+    return sendSuccess(res, 201, "HyMedia media file uploaded to Azure Blob Storage successfully.", asset);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateExistingAsset = (req, res, next) => {
+  try {
+    const asset = updateAsset(req.params.assetId, req.body);
+
+    if (!asset) {
+      const error = new Error("HyMedia asset not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return sendSuccess(res, 200, "HyMedia media post updated successfully.", asset);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteExistingAsset = (req, res, next) => {
+  try {
+    const asset = deleteAsset(req.params.assetId);
+
+    if (!asset) {
+      const error = new Error("HyMedia asset not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return sendSuccess(res, 200, "HyMedia media post deleted successfully.", asset);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getStats = (req, res, next) => {
+  try {
+    const stats = getAssetStats();
+
+    return sendSuccess(res, 200, "HyMedia dashboard statistics retrieved successfully.", stats);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUploadRules = (req, res, next) => {
+  try {
+    return sendSuccess(res, 200, "HyMedia upload rules retrieved successfully.", getAllowedUploadSummary());
+  } catch (error) {
+    next(error);
+  }
+};
+`);
+
+writeFile("src/routes/assetRoutes.js", `
+import express from "express";
+
+import {
+  createNewAsset,
+  deleteExistingAsset,
+  getAsset,
+  getStats,
+  getUploadRules,
+  listAssets,
+  updateExistingAsset,
+  uploadNewAsset
+} from "../controllers/assetController.js";
+import { uploadSingleMedia } from "../middleware/uploadMiddleware.js";
+
+const router = express.Router();
+
+router.get("/assets/stats", getStats);
+router.get("/assets/upload-rules", getUploadRules);
+router.get("/assets", listAssets);
+router.get("/assets/:assetId", getAsset);
+router.post("/assets", createNewAsset);
+router.post("/assets/upload", uploadSingleMedia, uploadNewAsset);
+router.put("/assets/:assetId", updateExistingAsset);
+router.delete("/assets/:assetId", deleteExistingAsset);
+
+export default router;
+`);
+
+writeFile("src/app.js", `
+import express from "express";
+import cors from "cors";
+import morgan from "morgan";
+
+import { env, isProduction } from "./config/env.js";
+import healthRoutes from "./routes/healthRoutes.js";
+import assetRoutes from "./routes/assetRoutes.js";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
+
+const app = express();
+
+app.use(
+  cors({
+    origin: env.frontendOrigin,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true
+  })
+);
+
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+
+app.use(morgan(isProduction ? "combined" : "dev"));
+
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "HyMedia Backend API is running.",
+    documentation: "/api/v1/health",
+    apiBase: "/api/v1",
+    availableEndpoints: [
+      "GET /api/v1/health",
+      "GET /api/v1/assets",
+      "GET /api/v1/assets/stats",
+      "GET /api/v1/assets/upload-rules",
+      "GET /api/v1/assets/:assetId",
+      "POST /api/v1/assets",
+      "POST /api/v1/assets/upload",
+      "PUT /api/v1/assets/:assetId",
+      "DELETE /api/v1/assets/:assetId"
+    ],
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.use("/api/v1", healthRoutes);
+app.use("/api/v1", assetRoutes);
+
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+export default app;
+`);
+
+console.log("Step 5D Azure Blob Storage backend integration generated.");

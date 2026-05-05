@@ -464,3 +464,32 @@ label {
     width: min(100% - 1rem, 1180px);
   }
 }
+
+
+.toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.checkbox-row {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(2, 6, 23, 0.5);
+  border-radius: 14px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
+  cursor: pointer;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+@media (max-width: 860px) {
+  .toggle-grid {
+    grid-template-columns: 1fr;
+  }
+}

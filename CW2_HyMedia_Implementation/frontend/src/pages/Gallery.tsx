@@ -10,6 +10,7 @@ export default function Gallery() {
   const [mediaType, setMediaType] = useState("");
   const [search, setSearch] = useState("");
   const [tag, setTag] = useState("");
+  const [location, setLocation] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -21,12 +22,13 @@ export default function Gallery() {
       const response = await getAssets({
         mediaType,
         search,
-        tag
-      });
+        tag,
+        location
+      } as any);
 
       setAssets(response.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load assets.");
+      setError(err instanceof Error ? err.message : "Failed to load HyMedia feed.");
     } finally {
       setLoading(false);
     }
@@ -45,8 +47,8 @@ export default function Gallery() {
     <section className="page">
       <div className="page-heading">
         <div>
-          <h2>Media Gallery</h2>
-          <p>Browse uploaded HyMedia assets from the backend REST API.</p>
+          <h2>HyMedia Feed</h2>
+          <p>Browse media posts with hashtags, locations, privacy states and moderation badges.</p>
         </div>
       </div>
 
@@ -54,13 +56,19 @@ export default function Gallery() {
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search title, description, tags..."
+          placeholder="Search captions, users, privacy, tags..."
         />
 
         <input
           value={tag}
           onChange={(event) => setTag(event.target.value)}
-          placeholder="Filter by tag, e.g. cloud"
+          placeholder="Hashtag, e.g. premium"
+        />
+
+        <input
+          value={location}
+          onChange={(event) => setLocation(event.target.value)}
+          placeholder="Location"
         />
 
         <select value={mediaType} onChange={(event) => setMediaType(event.target.value)}>
@@ -72,7 +80,7 @@ export default function Gallery() {
         </select>
 
         <button className="button button-primary" type="submit">
-          Apply Filters
+          Apply
         </button>
       </form>
 
@@ -82,8 +90,8 @@ export default function Gallery() {
         <LoadingState />
       ) : assets.length === 0 ? (
         <div className="empty-state">
-          <h3>No assets found</h3>
-          <p>Try clearing filters or upload a new asset.</p>
+          <h3>No media posts found</h3>
+          <p>Try clearing filters or upload a new HyMedia post.</p>
         </div>
       ) : (
         <div className="asset-grid">
