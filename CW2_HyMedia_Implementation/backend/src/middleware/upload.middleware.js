@@ -1,0 +1,50 @@
+const fs = require("fs");
+const path = require("path");
+const multer = require("multer");
+
+const uploadDirectory = path.join(__dirname, "../../uploads");
+
+if (!fs.existsSync(uploadDirectory)) {
+  fs.mkdirSync(uploadDirectory, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDirectory);
+  },
+  filename: (req, file, cb) => {
+    const safeOriginalName = file.originalname.replace(/\s+/g, "-").toLowerCase();
+    cb(null, `${Date.now()}-${safeOriginalName}`);
+  }
+});
+
+const allowedMimeTypes = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/ogg"
+];
+
+const fileFilter = (req, file, cb) => {
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Unsupported media type. Upload image, video or audio files only."));
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 25 * 1024 * 1024
+  }
+});
+
+module.exports = upload;
