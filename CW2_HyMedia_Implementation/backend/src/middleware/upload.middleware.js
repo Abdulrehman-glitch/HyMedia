@@ -1,8 +1,9 @@
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const multer = require("multer");
 
-const uploadDirectory = path.join(__dirname, "../../uploads");
+const uploadDirectory = path.join(os.tmpdir(), "hymedia-uploads");
 
 if (!fs.existsSync(uploadDirectory)) {
   fs.mkdirSync(uploadDirectory, { recursive: true });
@@ -20,6 +21,7 @@ const storage = multer.diskStorage({
 
 const allowedMimeTypes = [
   "image/jpeg",
+  "image/jpg",
   "image/png",
   "image/gif",
   "image/webp",
