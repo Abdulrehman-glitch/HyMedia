@@ -1,5 +1,8 @@
 require("dotenv").config();
 
+const setupApplicationInsights = require("./src/config/applicationInsights");
+setupApplicationInsights();
+
 const express = require("express");
 const cors = require("cors");
 
@@ -26,7 +29,13 @@ app.get("/", (req, res) => {
     status: "running",
     version: "1.0.0",
     module: "COM682 Cloud Native Development",
-    student: "B00968573"
+    student: "B00968573",
+    cloudServices: [
+      "Azure App Service",
+      "Azure Blob Storage",
+      "Azure Cosmos DB for NoSQL",
+      "Azure Application Insights"
+    ]
   });
 });
 
@@ -35,7 +44,11 @@ app.get("/api/v1/health", (req, res) => {
     status: "healthy",
     service: "hymedia-backend-api",
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development",
+    azureStorageConfigured: Boolean(process.env.AZURE_STORAGE_CONNECTION_STRING),
+    cosmosConfigured: Boolean(process.env.COSMOS_ENDPOINT && process.env.COSMOS_KEY),
+    appInsightsConfigured: Boolean(process.env.APPINSIGHTS_CONNECTION_STRING)
   });
 });
 

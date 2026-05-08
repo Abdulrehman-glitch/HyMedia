@@ -17,7 +17,7 @@ router.get("/", listAssets);
 router.get("/stats", assetStats);
 router.get("/:assetId", getSingleAsset);
 router.post("/", createNewAsset);
-router.post("/upload", upload.single("media"), uploadAsset);
+router.post("/upload", upload.any(), uploadAsset);
 router.put("/:assetId", updateExistingAsset);
 router.delete("/:assetId", deleteExistingAsset);
 
