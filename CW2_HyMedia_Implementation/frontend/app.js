@@ -1,4 +1,6 @@
-const API_BASE_URL = "https://hymedia-api-b00968573-ajegdnfpa9braqet.italynorth-01.azurewebsites.net";
+const API_BASE_URL =
+  window.HYMEDIA_CONFIG?.API_BASE_URL ||
+  "https://hymedia-api-b00968573-ajegdnfpa9braqet.italynorth-01.azurewebsites.net";
 
 const healthOutput = document.getElementById("healthOutput");
 const uploadOutput = document.getElementById("uploadOutput");
@@ -97,7 +99,10 @@ function formatTags(tags) {
   }
 
   if (typeof tags === "string") {
-    return tags.split(",").map((tag) => tag.trim()).filter(Boolean);
+    return tags
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
   }
 
   return [];
@@ -182,15 +187,21 @@ async function uploadAsset(event) {
   formData.append("tags", document.getElementById("tags").value);
   formData.append("location", document.getElementById("location").value);
   formData.append("visibility", document.getElementById("visibility").value);
-  formData.append("isSensitive", document.getElementById("isSensitive").checked);
-  formData.append("isAdult18Plus", document.getElementById("isAdult18Plus").checked);
+  formData.append(
+    "isSensitive",
+    document.getElementById("isSensitive").checked,
+  );
+  formData.append(
+    "isAdult18Plus",
+    document.getElementById("isAdult18Plus").checked,
+  );
 
   uploadOutput.textContent = "Uploading to Azure Blob Storage...";
 
   try {
     const response = await fetchJson(`${API_BASE_URL}/api/v1/assets/upload`, {
       method: "POST",
-      body: formData
+      body: formData,
     });
 
     uploadOutput.textContent = JSON.stringify(response, null, 2);
@@ -215,9 +226,14 @@ function openEditModal(assetId) {
   document.getElementById("editCaption").value = asset.caption || "";
   document.getElementById("editTags").value = formatTags(asset.tags).join(", ");
   document.getElementById("editLocation").value = asset.location || "";
-  document.getElementById("editVisibility").value = asset.visibility || "PUBLIC";
-  document.getElementById("editIsSensitive").checked = Boolean(asset.isSensitive);
-  document.getElementById("editIsAdult18Plus").checked = Boolean(asset.isAdult18Plus);
+  document.getElementById("editVisibility").value =
+    asset.visibility || "PUBLIC";
+  document.getElementById("editIsSensitive").checked = Boolean(
+    asset.isSensitive,
+  );
+  document.getElementById("editIsAdult18Plus").checked = Boolean(
+    asset.isAdult18Plus,
+  );
 
   editModal.classList.add("open");
 }
@@ -239,16 +255,16 @@ async function submitEdit(event) {
     location: document.getElementById("editLocation").value,
     visibility: document.getElementById("editVisibility").value,
     isSensitive: document.getElementById("editIsSensitive").checked,
-    isAdult18Plus: document.getElementById("editIsAdult18Plus").checked
+    isAdult18Plus: document.getElementById("editIsAdult18Plus").checked,
   };
 
   try {
     await fetchJson(`${API_BASE_URL}/api/v1/assets/${assetId}`, {
       method: "PUT",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     closeModal();
@@ -260,7 +276,9 @@ async function submitEdit(event) {
 }
 
 async function deleteAsset(assetId) {
-  const confirmed = confirm("Are you sure you want to delete this asset metadata from Cosmos DB?");
+  const confirmed = confirm(
+    "Are you sure you want to delete this asset metadata from Cosmos DB?",
+  );
 
   if (!confirmed) {
     return;
@@ -268,7 +286,7 @@ async function deleteAsset(assetId) {
 
   try {
     await fetchJson(`${API_BASE_URL}/api/v1/assets/${assetId}`, {
-      method: "DELETE"
+      method: "DELETE",
     });
 
     showToast("Asset deleted.");
