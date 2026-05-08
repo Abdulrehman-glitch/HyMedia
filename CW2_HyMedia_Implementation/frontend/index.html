@@ -1,138 +1,204 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HyMedia | Cloud-Native Multimedia Platform</title>
-  <link rel="stylesheet" href="styles.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HyMedia | Cloud-Native Multimedia Platform</title>
+    <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
-  <header class="app-header">
-    <div>
-      <p class="eyebrow">COM682 Cloud Native Development</p>
-      <h1>HyMedia</h1>
-      <p class="subtitle">Azure-powered multimedia sharing platform for images, video, audio and GIF content.</p>
+    <header class="app-header">
+        <div>
+            <p class="eyebrow">COM682 Cloud Native Development</p>
+            <h1>HyMedia</h1>
+            <p class="subtitle">Azure-powered multimedia sharing platform for images, video, audio and GIF content.</p>
+        </div>
+        <div class="header-badge">
+            <span>Backend</span>
+            <strong>Azure App Service</strong>
+        </div>
+    </header>
+
+    <main class="layout">
+        <section class="panel hero-panel">
+            <div>
+                <p class="eyebrow">Live Azure API</p>
+                <h2>Cloud-native media upload, metadata storage and REST CRUD</h2>
+                <p>
+                    This frontend connects directly to the deployed HyMedia backend API on Azure App Service.
+                    Uploaded files are stored in Azure Blob Storage and metadata is stored in Azure Cosmos DB.
+                </p>
+            </div>
+            <button id="refreshBtn" class="primary-btn">Refresh Dashboard</button>
+        </section>
+
+        <section class="grid three">
+            <article class="stat-card">
+                <span>Total Assets</span>
+                <strong id="totalAssets">0</strong>
+            </article>
+            <article class="stat-card">
+                <span>Image Assets</span>
+                <strong id="imageAssets">0</strong>
+            </article>
+            <article class="stat-card">
+                <span>Sensitive Assets</span>
+                <strong id="sensitiveAssets">0</strong>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">System Status</p>
+                    <h2>Azure Backend Health</h2>
+                </div>
+            </div>
+            <pre id="healthOutput" class="output-box">Loading backend health...</pre>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Create Asset</p>
+                    <h2>Upload media to Azure Blob Storage</h2>
+                </div>
+            </div>
+
+            <form id="uploadForm" class="form-grid">
+                <label>
+                    Media File
+                    <input type="file" id="mediaFile" required />
+                </label>
+
+                <label>
+                    Title
+                    <input type="text" id="title" placeholder="Example: London street photo" required />
+                </label>
+
+                <label>
+                    Caption
+                    <textarea id="caption" placeholder="Write a short caption"></textarea>
+                </label>
+
+                <label>
+                    Tags
+                    <input type="text" id="tags" placeholder="azure,blob,hymedia,cw2" />
+                </label>
+
+                <label>
+                    Location
+                    <input type="text" id="location" placeholder="London / Italy North" />
+                </label>
+
+                <label>
+                    Visibility
+                    <select id="visibility">
+                        <option value="PUBLIC">PUBLIC</option>
+                        <option value="PRIVATE_SELECTED">PRIVATE_SELECTED</option>
+                        <option value="UNLISTED_LINK">UNLISTED_LINK</option>
+                        <option value="CREATOR_PREMIUM">CREATOR_PREMIUM</option>
+                    </select>
+                </label>
+
+                <div class="checkbox-row">
+                    <label>
+                        <input type="checkbox" id="isSensitive" />
+                        Sensitive content
+                    </label>
+
+                    <label>
+                        <input type="checkbox" id="isAdult18Plus" />
+                        18+ content
+                    </label>
+                </div>
+
+                <button type="submit" class="primary-btn">Upload to Azure</button>
+            </form>
+
+            <pre id="uploadOutput" class="output-box">Upload response will appear here.</pre>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Read / Update / Delete</p>
+                    <h2>Asset Gallery from Cosmos DB</h2>
+                </div>
+            </div>
+
+            <div id="assetList" class="asset-grid"></div>
+        </section>
+    </main>
+
+    <div id="editModal" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <p class="eyebrow">Update Asset</p>
+                    <h2>Edit HyMedia Metadata</h2>
+                </div>
+                <button id="closeEditModal" class="icon-btn" type="button">×</button>
+            </div>
+
+            <form id="editForm" class="edit-form">
+                <input type="hidden" id="editAssetId" />
+
+                <label>
+                    Title
+                    <input type="text" id="editTitle" required />
+                </label>
+
+                <label>
+                    Caption
+                    <textarea id="editCaption"></textarea>
+                </label>
+
+                <label>
+                    Tags
+                    <input type="text" id="editTags" placeholder="azure,blob,hymedia" />
+                </label>
+
+                <label>
+                    Location
+                    <input type="text" id="editLocation" />
+                </label>
+
+                <label>
+                    Visibility
+                    <select id="editVisibility">
+                        <option value="PUBLIC">PUBLIC</option>
+                        <option value="PRIVATE_SELECTED">PRIVATE_SELECTED</option>
+                        <option value="UNLISTED_LINK">UNLISTED_LINK</option>
+                        <option value="CREATOR_PREMIUM">CREATOR_PREMIUM</option>
+                    </select>
+                </label>
+
+                <div class="checkbox-row">
+                    <label>
+                        <input type="checkbox" id="editIsSensitive" />
+                        Sensitive content
+                    </label>
+
+                    <label>
+                        <input type="checkbox" id="editIsAdult18Plus" />
+                        18+ content
+                    </label>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" id="cancelEditBtn" class="secondary-btn">Cancel</button>
+                    <button type="submit" class="primary-btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
     </div>
-    <div class="header-badge">
-      <span>Backend</span>
-      <strong>Azure App Service</strong>
-    </div>
-  </header>
 
-  <main class="layout">
-    <section class="panel hero-panel">
-      <div>
-        <p class="eyebrow">Live Azure API</p>
-        <h2>Cloud-native media upload, metadata storage and REST CRUD</h2>
-        <p>
-          This frontend connects directly to the deployed HyMedia backend API on Azure App Service.
-          Uploaded files are stored in Azure Blob Storage and metadata is stored in Azure Cosmos DB.
-        </p>
-      </div>
-      <button id="refreshBtn" class="primary-btn">Refresh Dashboard</button>
-    </section>
+    <div id="toast" class="toast"></div>
 
-    <section class="grid three">
-      <article class="stat-card">
-        <span>Total Assets</span>
-        <strong id="totalAssets">0</strong>
-      </article>
-      <article class="stat-card">
-        <span>Image Assets</span>
-        <strong id="imageAssets">0</strong>
-      </article>
-      <article class="stat-card">
-        <span>Sensitive Assets</span>
-        <strong id="sensitiveAssets">0</strong>
-      </article>
-    </section>
-
-    <section class="panel">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">System Status</p>
-          <h2>Azure Backend Health</h2>
-        </div>
-      </div>
-      <pre id="healthOutput" class="output-box">Loading backend health...</pre>
-    </section>
-
-    <section class="panel">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Create Asset</p>
-          <h2>Upload media to Azure Blob Storage</h2>
-        </div>
-      </div>
-
-      <form id="uploadForm" class="form-grid">
-        <label>
-          Media File
-          <input type="file" id="mediaFile" required />
-        </label>
-
-        <label>
-          Title
-          <input type="text" id="title" placeholder="Example: London street photo" required />
-        </label>
-
-        <label>
-          Caption
-          <textarea id="caption" placeholder="Write a short caption"></textarea>
-        </label>
-
-        <label>
-          Tags
-          <input type="text" id="tags" placeholder="azure,blob,hymedia,cw2" />
-        </label>
-
-        <label>
-          Location
-          <input type="text" id="location" placeholder="London / Italy North" />
-        </label>
-
-        <label>
-          Visibility
-          <select id="visibility">
-            <option value="PUBLIC">PUBLIC</option>
-            <option value="PRIVATE_SELECTED">PRIVATE_SELECTED</option>
-            <option value="UNLISTED_LINK">UNLISTED_LINK</option>
-            <option value="CREATOR_PREMIUM">CREATOR_PREMIUM</option>
-          </select>
-        </label>
-
-        <div class="checkbox-row">
-          <label>
-            <input type="checkbox" id="isSensitive" />
-            Sensitive content
-          </label>
-
-          <label>
-            <input type="checkbox" id="isAdult18Plus" />
-            18+ content
-          </label>
-        </div>
-
-        <button type="submit" class="primary-btn">Upload to Azure</button>
-      </form>
-
-      <pre id="uploadOutput" class="output-box">Upload response will appear here.</pre>
-    </section>
-
-    <section class="panel">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Read / Update / Delete</p>
-          <h2>Asset Gallery from Cosmos DB</h2>
-        </div>
-      </div>
-
-      <div id="assetList" class="asset-grid"></div>
-    </section>
-  </main>
-
-  <div id="toast" class="toast"></div>
-
-  <script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
+
 </html>
