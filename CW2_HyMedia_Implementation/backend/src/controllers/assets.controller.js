@@ -8,7 +8,10 @@ const {
   detectMediaType
 } = require("../services/cosmos-assets.service");
 
-const { uploadFileToAzureBlob } = require("../services/blob.service");
+const {
+  uploadFileToAzureBlob,
+  getBlobDownloadResponse
+} = require("../services/blob.service");
 
 async function listAssets(req, res, next) {
   try {
@@ -103,6 +106,42 @@ async function uploadAsset(req, res, next) {
   }
 }
 
+async function streamAssetMedia(req, res, next) {
+  try {
+    const { assetId } = req.params;
+    const asset = await getAssetById(assetId);
+
+    if (!asset) {
+      return res.status(404).json({
+        success: false,
+        message: "Asset not found"
+      });
+    }
+
+    if (!asset.blobName) {
+      return res.status(404).json({
+        success: false,
+        message: "Asset has no Blob Storage file linked."
+      });
+    }
+
+    const downloadResponse = await getBlobDownloadResponse(asset.blobName);
+
+    if (!downloadResponse || !downloadResponse.readableStreamBody) {
+      return res.status(404).json({
+        success: false,
+        message: "Blob file not found in Azure Storage."
+      });
+    }
+
+    res.setHeader("Content-Type", asset.mimeType || "application/octet-stream");
+    res.setHeader("Cache-Control", "public, max-age=300");
+    downloadResponse.readableStreamBody.pipe(res);
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function updateExistingAsset(req, res, next) {
   try {
     const { assetId } = req.params;
@@ -165,6 +204,7 @@ module.exports = {
   getSingleAsset,
   createNewAsset,
   uploadAsset,
+  streamAssetMedia,
   updateExistingAsset,
   deleteExistingAsset,
   assetStats

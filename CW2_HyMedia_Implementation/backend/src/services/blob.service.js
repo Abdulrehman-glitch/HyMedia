@@ -37,6 +37,20 @@ async function uploadFileToAzureBlob(file) {
   };
 }
 
+async function getBlobDownloadResponse(blobName) {
+  const containerClient = getBlobContainerClient();
+  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+
+  const exists = await blockBlobClient.exists();
+
+  if (!exists) {
+    return null;
+  }
+
+  return blockBlobClient.download(0);
+}
+
 module.exports = {
-  uploadFileToAzureBlob
+  uploadFileToAzureBlob,
+  getBlobDownloadResponse
 };

@@ -6,6 +6,7 @@ const {
   getSingleAsset,
   createNewAsset,
   uploadAsset,
+  streamAssetMedia,
   updateExistingAsset,
   deleteExistingAsset,
   assetStats
@@ -15,6 +16,7 @@ const router = express.Router();
 
 router.get("/", listAssets);
 router.get("/stats", assetStats);
+router.get("/:assetId/media", streamAssetMedia);
 router.get("/:assetId", getSingleAsset);
 router.post("/", createNewAsset);
 router.post("/upload", upload.any(), uploadAsset);
