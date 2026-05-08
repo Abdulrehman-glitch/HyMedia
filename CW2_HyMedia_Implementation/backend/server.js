@@ -7,9 +7,9 @@ const express = require("express");
 const cors = require("cors");
 
 const assetRoutes = require("./src/routes/assets.routes");
+const authRoutes = require("./src/routes/auth.routes");
 
 const app = express();
-
 const PORT = process.env.PORT || 5000;
 
 const allowedOrigins = [
@@ -20,7 +20,7 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: function (origin, callback) {
+    origin(origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
@@ -28,7 +28,8 @@ app.use(
       return callback(new Error("CORS blocked: origin not allowed"));
     },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+    allowedHeaders: ["Content-Type", "Authorization", "Range"],
+    exposedHeaders: ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Type"]
   })
 );
 
@@ -39,15 +40,22 @@ app.get("/", (req, res) => {
   res.status(200).json({
     application: "HyMedia Cloud-Native Multimedia Sharing Platform",
     status: "running",
-    version: "1.0.0",
+    version: "1.1.0",
     module: "COM682 Cloud Native Development",
     student: "B00968573",
+    frontend: "https://hymedia-web.azurewebsites.net",
     cloudServices: [
       "Azure App Service",
       "Azure Blob Storage",
       "Azure Cosmos DB for NoSQL",
       "Azure Application Insights"
-    ]
+    ],
+    endpoints: {
+      health: "/api/v1/health",
+      authSignup: "/api/v1/auth/signup",
+      authLogin: "/api/v1/auth/login",
+      assets: "/api/v1/assets"
+    }
   });
 });
 
@@ -60,10 +68,12 @@ app.get("/api/v1/health", (req, res) => {
     environment: process.env.NODE_ENV || "development",
     azureStorageConfigured: Boolean(process.env.AZURE_STORAGE_CONNECTION_STRING),
     cosmosConfigured: Boolean(process.env.COSMOS_ENDPOINT && process.env.COSMOS_KEY),
+    usersContainerConfigured: Boolean(process.env.COSMOS_USERS_CONTAINER_NAME || "users"),
     appInsightsConfigured: Boolean(process.env.APPINSIGHTS_CONNECTION_STRING)
   });
 });
 
+app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/assets", assetRoutes);
 
 app.use((req, res) => {
@@ -85,5 +95,4 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`HyMedia backend API running on http://localhost:${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/api/v1/health`);
 });

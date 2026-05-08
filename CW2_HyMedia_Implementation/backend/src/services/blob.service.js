@@ -2,6 +2,11 @@ const fs = require("fs");
 const path = require("path");
 const { getBlobContainerClient } = require("../config/blobClient");
 
+function getBlockBlobClient(blobName) {
+  const containerClient = getBlobContainerClient();
+  return containerClient.getBlockBlobClient(blobName);
+}
+
 async function uploadFileToAzureBlob(file) {
   const containerClient = getBlobContainerClient();
 
@@ -37,20 +42,18 @@ async function uploadFileToAzureBlob(file) {
   };
 }
 
-async function getBlobDownloadResponse(blobName) {
-  const containerClient = getBlobContainerClient();
-  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+async function getBlobProperties(blobName) {
+  const blockBlobClient = getBlockBlobClient(blobName);
+  return blockBlobClient.getProperties();
+}
 
-  const exists = await blockBlobClient.exists();
-
-  if (!exists) {
-    return null;
-  }
-
-  return blockBlobClient.download(0);
+async function downloadBlobRange(blobName, start, count) {
+  const blockBlobClient = getBlockBlobClient(blobName);
+  return blockBlobClient.download(start, count);
 }
 
 module.exports = {
   uploadFileToAzureBlob,
-  getBlobDownloadResponse
+  getBlobProperties,
+  downloadBlobRange
 };

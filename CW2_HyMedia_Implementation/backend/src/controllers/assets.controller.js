@@ -10,7 +10,8 @@ const {
 
 const {
   uploadFileToAzureBlob,
-  getBlobDownloadResponse
+  getBlobProperties,
+  downloadBlobRange
 } = require("../services/blob.service");
 
 async function listAssets(req, res, next) {
@@ -54,7 +55,11 @@ async function getSingleAsset(req, res, next) {
 
 async function createNewAsset(req, res, next) {
   try {
-    const asset = await createAsset(req.body);
+    const asset = await createAsset({
+      ...req.body,
+      ownerId: req.user?.userId,
+      ownerEmail: req.user?.email
+    });
 
     res.status(201).json({
       success: true,
@@ -92,7 +97,9 @@ async function uploadAsset(req, res, next) {
       visibility: (req.body.visibility || "PUBLIC").toUpperCase(),
       isSensitive: req.body.isSensitive === "true" || req.body.isSensitive === true,
       isAdult18Plus: req.body.isAdult18Plus === "true" || req.body.isAdult18Plus === true,
-      processingStatus: "READY"
+      processingStatus: "READY",
+      ownerId: req.user?.userId,
+      ownerEmail: req.user?.email
     });
 
     res.status(201).json({
@@ -111,32 +118,48 @@ async function streamAssetMedia(req, res, next) {
     const { assetId } = req.params;
     const asset = await getAssetById(assetId);
 
-    if (!asset) {
+    if (!asset || !asset.blobName) {
       return res.status(404).json({
         success: false,
-        message: "Asset not found"
+        message: "Asset media not found."
       });
     }
 
-    if (!asset.blobName) {
-      return res.status(404).json({
-        success: false,
-        message: "Asset has no Blob Storage file linked."
-      });
-    }
+    const properties = await getBlobProperties(asset.blobName);
+    const fileSize = Number(properties.contentLength || 0);
+    const contentType = asset.mimeType || properties.contentType || "application/octet-stream";
+    const range = req.headers.range;
 
-    const downloadResponse = await getBlobDownloadResponse(asset.blobName);
-
-    if (!downloadResponse || !downloadResponse.readableStreamBody) {
-      return res.status(404).json({
-        success: false,
-        message: "Blob file not found in Azure Storage."
-      });
-    }
-
-    res.setHeader("Content-Type", asset.mimeType || "application/octet-stream");
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=300");
-    downloadResponse.readableStreamBody.pipe(res);
+
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = Number.parseInt(parts[0], 10);
+      const end = parts[1] ? Number.parseInt(parts[1], 10) : fileSize - 1;
+
+      if (Number.isNaN(start) || Number.isNaN(end) || start >= fileSize || end >= fileSize) {
+        res.setHeader("Content-Range", `bytes */${fileSize}`);
+        return res.status(416).end();
+      }
+
+      const chunkSize = end - start + 1;
+      const downloadResponse = await downloadBlobRange(asset.blobName, start, chunkSize);
+
+      res.status(206);
+      res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
+      res.setHeader("Content-Length", chunkSize);
+
+      return downloadResponse.readableStreamBody.pipe(res);
+    }
+
+    const downloadResponse = await downloadBlobRange(asset.blobName, 0, fileSize);
+
+    res.status(200);
+    res.setHeader("Content-Length", fileSize);
+
+    return downloadResponse.readableStreamBody.pipe(res);
   } catch (error) {
     next(error);
   }

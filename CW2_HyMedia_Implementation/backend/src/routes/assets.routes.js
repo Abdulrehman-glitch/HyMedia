@@ -1,5 +1,6 @@
 const express = require("express");
 const upload = require("../middleware/upload.middleware");
+const { requireAuth } = require("../middleware/auth.middleware");
 
 const {
   listAssets,
@@ -18,9 +19,10 @@ router.get("/", listAssets);
 router.get("/stats", assetStats);
 router.get("/:assetId/media", streamAssetMedia);
 router.get("/:assetId", getSingleAsset);
-router.post("/", createNewAsset);
-router.post("/upload", upload.any(), uploadAsset);
-router.put("/:assetId", updateExistingAsset);
-router.delete("/:assetId", deleteExistingAsset);
+
+router.post("/", requireAuth, createNewAsset);
+router.post("/upload", requireAuth, upload.any(), uploadAsset);
+router.put("/:assetId", requireAuth, updateExistingAsset);
+router.delete("/:assetId", requireAuth, deleteExistingAsset);
 
 module.exports = router;
