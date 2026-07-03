@@ -24,7 +24,7 @@ router.get("/:assetId/media", optionalAuth, streamAssetMedia);
 router.get("/:assetId", optionalAuth, getSingleAsset);
 
 router.post("/", requireAuth, validate(assetCreateSchema), createNewAsset);
-router.post("/upload", requireAuth, uploadLimiter, upload.any(), uploadAsset);
+router.post("/upload", requireAuth, uploadLimiter, upload.single("file"), uploadAsset);
 router.put("/:assetId", requireAuth, validate(assetUpdateSchema), updateExistingAsset);
 router.delete("/:assetId", requireAuth, deleteExistingAsset);
 

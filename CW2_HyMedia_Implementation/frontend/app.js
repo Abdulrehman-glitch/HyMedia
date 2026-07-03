@@ -5,8 +5,7 @@ const API_BASE_URL =
 const state = {
   assets: [],
   revealedAssets: new Set(),
-  currentUser: JSON.parse(localStorage.getItem("hymedia_user") || "null"),
-  authToken: localStorage.getItem("hymedia_token") || "",
+  currentUser: null,
   search: "",
   typeFilter: ""
 };
@@ -80,11 +79,26 @@ function setBusy(button, isBusy, busyText = "Working...") {
 }
 
 function getAuthHeader() {
-  return state.authToken ? { Authorization: `Bearer ${state.authToken}` } : {};
+  return {};
 }
 
 async function fetchJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const { skipAuthRefresh = false, ...fetchOptions } = options;
+  const requestOptions = {
+    credentials: "include",
+    ...fetchOptions,
+    headers: fetchOptions.headers || {}
+  };
+  let response = await fetch(url, requestOptions);
+
+  if (response.status === 401 && !skipAuthRefresh) {
+    const refreshed = await refreshSession();
+
+    if (refreshed) {
+      response = await fetch(url, requestOptions);
+    }
+  }
+
   const contentType = response.headers.get("content-type") || "";
   const data = contentType.includes("application/json")
     ? await response.json()
@@ -101,7 +115,7 @@ async function fetchJson(url, options = {}) {
 }
 
 function updateAuthStatus() {
-  if (state.currentUser && state.authToken) {
+  if (state.currentUser) {
     elements.authStatus.textContent = `Signed in as ${state.currentUser.displayName || state.currentUser.email}`;
     elements.authStatus.classList.add("signed-in");
     elements.openAuthBtn.classList.add("hidden");
@@ -160,6 +174,13 @@ async function signup(event) {
     email: qs("#signupEmail").value.trim(),
     password: qs("#signupPassword").value
   };
+  const confirmPassword = qs("#signupPasswordConfirm").value;
+
+  if (payload.password !== confirmPassword) {
+    elements.authOutput.textContent = "Passwords do not match.";
+    showToast("Passwords do not match.");
+    return;
+  }
 
   setBusy(button, true, "Creating...");
   elements.authOutput.textContent = "Creating account...";
@@ -168,13 +189,11 @@ async function signup(event) {
     const response = await fetchJson(`${API_BASE_URL}/api/v1/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      skipAuthRefresh: true
     });
 
-    state.authToken = response.token;
     state.currentUser = response.user;
-    localStorage.setItem("hymedia_token", state.authToken);
-    localStorage.setItem("hymedia_user", JSON.stringify(state.currentUser));
 
     elements.signupForm.reset();
     updatePasswordMeter();
@@ -205,13 +224,11 @@ async function login(event) {
     const response = await fetchJson(`${API_BASE_URL}/api/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      skipAuthRefresh: true
     });
 
-    state.authToken = response.token;
     state.currentUser = response.user;
-    localStorage.setItem("hymedia_token", state.authToken);
-    localStorage.setItem("hymedia_user", JSON.stringify(state.currentUser));
 
     elements.loginForm.reset();
     updateAuthStatus();
@@ -226,14 +243,60 @@ async function login(event) {
   }
 }
 
-function logout() {
-  state.authToken = "";
+async function logout() {
+  try {
+    await fetchJson(`${API_BASE_URL}/api/v1/auth/logout`, {
+      method: "POST",
+      skipAuthRefresh: true
+    });
+  } catch (error) {
+    showToast(error.message);
+  }
+
   state.currentUser = null;
   localStorage.removeItem("hymedia_token");
   localStorage.removeItem("hymedia_user");
   updateAuthStatus();
   renderAssets();
   showToast("Signed out.");
+  await refreshDashboard();
+}
+
+async function refreshSession() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+      method: "POST",
+      credentials: "include"
+    });
+
+    if (!response.ok) {
+      state.currentUser = null;
+      updateAuthStatus();
+      return false;
+    }
+
+    const data = await response.json();
+    state.currentUser = data.user || null;
+    updateAuthStatus();
+    return Boolean(state.currentUser);
+  } catch (error) {
+    return false;
+  }
+}
+
+async function loadCurrentUser() {
+  try {
+    const response = await fetchJson(`${API_BASE_URL}/api/v1/auth/me`, {
+      skipAuthRefresh: false
+    });
+    state.currentUser = response.user || null;
+  } catch (error) {
+    state.currentUser = null;
+  }
+
+  localStorage.removeItem("hymedia_token");
+  localStorage.removeItem("hymedia_user");
+  updateAuthStatus();
 }
 
 async function loadHealth() {
@@ -351,6 +414,15 @@ function renderAssets() {
     .map((asset) => {
       const tags = formatTags(asset.tags);
       const ownerLabel = isOwner(asset) ? "You" : asset.ownerEmail || "Unknown";
+      const canManage = isOwner(asset) || state.currentUser?.role === "admin";
+      const actions = canManage
+        ? `
+            <div class="card-actions">
+              <button class="btn btn-ghost small" type="button" data-action="edit" data-id="${escapeHtml(asset.assetId)}">Edit</button>
+              <button class="btn btn-danger small" type="button" data-action="delete" data-id="${escapeHtml(asset.assetId)}">Delete</button>
+            </div>
+          `
+        : '<p class="readonly-note">View only</p>';
 
       return `
         <article class="asset-card" data-action="view" data-id="${escapeHtml(asset.assetId)}">
@@ -367,10 +439,7 @@ function renderAssets() {
               <dt>Owner</dt><dd>${escapeHtml(ownerLabel)}</dd>
               <dt>Location</dt><dd>${escapeHtml(asset.location || "N/A")}</dd>
             </dl>
-            <div class="card-actions">
-              <button class="btn btn-ghost small" type="button" data-action="edit" data-id="${escapeHtml(asset.assetId)}">Edit</button>
-              <button class="btn btn-danger small" type="button" data-action="delete" data-id="${escapeHtml(asset.assetId)}">Delete</button>
-            </div>
+            ${actions}
           </div>
         </article>
       `;
@@ -381,7 +450,7 @@ function renderAssets() {
 async function uploadAsset(event) {
   event.preventDefault();
 
-  if (!state.authToken) {
+  if (!state.currentUser) {
     showToast("Sign in before uploading.");
     openAuthModal("login");
     return;
@@ -430,6 +499,16 @@ function openAssetView(assetId) {
   if (!asset) return;
 
   const tags = formatTags(asset.tags);
+  const canManage = isOwner(asset) || state.currentUser?.role === "admin";
+  const actions = canManage
+    ? `
+        <div class="modal-actions">
+          <button class="btn btn-ghost" type="button" data-action="edit" data-id="${escapeHtml(asset.assetId)}">Edit metadata</button>
+          <button class="btn btn-danger" type="button" data-action="delete" data-id="${escapeHtml(asset.assetId)}">Delete asset</button>
+        </div>
+      `
+    : '<p class="readonly-note">You can view this public asset, but only the owner can modify it.</p>';
+
   elements.viewAssetTitle.textContent = asset.title || "HyMedia asset";
   elements.assetViewContent.innerHTML = `
     <div class="asset-detail-layout">
@@ -447,10 +526,7 @@ function openAssetView(assetId) {
           <dt>Sensitive</dt><dd>${asset.isSensitive ? "Yes" : "No"}</dd>
           <dt>18+</dt><dd>${asset.isAdult18Plus ? "Yes" : "No"}</dd>
         </dl>
-        <div class="modal-actions">
-          <button class="btn btn-ghost" type="button" data-action="edit" data-id="${escapeHtml(asset.assetId)}">Edit metadata</button>
-          <button class="btn btn-danger" type="button" data-action="delete" data-id="${escapeHtml(asset.assetId)}">Delete asset</button>
-        </div>
+        ${actions}
       </div>
     </div>
   `;
@@ -462,7 +538,7 @@ function closeAssetView() {
 }
 
 function openEditModal(assetId) {
-  if (!state.authToken) {
+  if (!state.currentUser) {
     showToast("Sign in before editing.");
     openAuthModal("login");
     return;
@@ -522,7 +598,7 @@ async function submitEdit(event) {
 }
 
 async function deleteAsset(assetId) {
-  if (!state.authToken) {
+  if (!state.currentUser) {
     showToast("Sign in before deleting.");
     openAuthModal("login");
     return;
@@ -647,7 +723,11 @@ function bindEvents() {
   setupDropZone();
 }
 
-bindEvents();
-updateAuthStatus();
-updatePasswordMeter();
-refreshDashboard();
+async function init() {
+  bindEvents();
+  updatePasswordMeter();
+  await loadCurrentUser();
+  await refreshDashboard();
+}
+
+init();

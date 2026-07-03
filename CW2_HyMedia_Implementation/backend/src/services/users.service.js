@@ -72,6 +72,21 @@ async function createUser({ displayName, email, password }) {
   return sanitizeUser(response.resource);
 }
 
+async function findUserById(userId) {
+  const container = getCosmosUsersContainer();
+
+  try {
+    const { resource } = await container.item(userId, userId).read();
+    return resource || null;
+  } catch (error) {
+    if (error.code === 404) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 async function replaceUser(user) {
   const container = getCosmosUsersContainer();
   const { resource } = await container.item(user.id, user.id).replace(user);
@@ -134,6 +149,7 @@ async function validateUserCredentials(email, password) {
 module.exports = {
   createUser,
   validateUserCredentials,
+  findUserById,
   findUserByEmail,
   sanitizeUser,
   isUserLocked

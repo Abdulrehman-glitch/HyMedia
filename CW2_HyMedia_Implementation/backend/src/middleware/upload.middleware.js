@@ -14,7 +14,11 @@ const storage = multer.diskStorage({
     cb(null, uploadDirectory);
   },
   filename: (req, file, cb) => {
-    const safeOriginalName = file.originalname.replace(/\s+/g, "-").toLowerCase();
+    const safeOriginalName = path
+      .basename(file.originalname)
+      .replace(/[^a-zA-Z0-9._-]/g, "-")
+      .replace(/-+/g, "-")
+      .toLowerCase();
     cb(null, `${Date.now()}-${safeOriginalName}`);
   }
 });
@@ -45,8 +49,14 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 25 * 1024 * 1024
+    fileSize: 25 * 1024 * 1024,
+    files: 1,
+    fields: 12,
+    fieldNameSize: 80,
+    fieldSize: 4 * 1024
   }
 });
+
+upload.allowedMimeTypes = allowedMimeTypes;
 
 module.exports = upload;

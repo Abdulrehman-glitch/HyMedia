@@ -7,6 +7,8 @@ const {
   detectMediaType
 } = require("../services/cosmos-assets.service");
 
+const fs = require("fs");
+const path = require("path");
 const {
   uploadFileToAzureBlob,
   getBlobProperties,
@@ -15,6 +17,34 @@ const {
 } = require("../services/blob.service");
 const { isAdmin } = require("../middleware/auth.middleware");
 const { visibilitySchema } = require("../validators/assets.validators");
+
+const allowedUploadMimeTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/vnd.wave",
+  "audio/ogg"
+]);
+
+const allowedExtensions = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".mp4",
+  ".mov",
+  ".webm",
+  ".mp3",
+  ".wav",
+  ".ogg"
+]);
 
 function normalizeBoolean(value) {
   return value === true || value === "true" || value === "on" || value === "1";
@@ -54,6 +84,42 @@ function buildStats(assets) {
     sensitiveAssets: assets.filter((asset) => asset.isSensitive).length,
     adult18PlusAssets: assets.filter((asset) => asset.isAdult18Plus).length
   };
+}
+
+function cleanupUploadedFile(file) {
+  if (file?.path && fs.existsSync(file.path)) {
+    fs.unlinkSync(file.path);
+  }
+}
+
+async function verifyUploadedFile(file) {
+  const extension = path.extname(file.originalname || "").toLowerCase();
+
+  if (!allowedExtensions.has(extension)) {
+    const error = new Error("Unsupported file extension.");
+    error.status = 400;
+    throw error;
+  }
+
+  const { fileTypeFromFile } = await import("file-type");
+  const detected = await fileTypeFromFile(file.path);
+
+  if (!detected || !allowedUploadMimeTypes.has(detected.mime)) {
+    const error = new Error("Uploaded file content does not match an allowed media type.");
+    error.status = 400;
+    throw error;
+  }
+
+  const knownMimeAliases = (
+    (detected.mime === "audio/vnd.wave" && file.mimetype === "audio/wav") ||
+    (detected.mime === "image/jpeg" && file.mimetype === "image/jpg")
+  );
+
+  if (detected.mime !== file.mimetype && !knownMimeAliases) {
+    const error = new Error("Uploaded file MIME type does not match its content.");
+    error.status = 400;
+    throw error;
+  }
 }
 
 async function listAssets(req, res, next) {
@@ -122,8 +188,10 @@ async function createNewAsset(req, res, next) {
 }
 
 async function uploadAsset(req, res, next) {
+  let uploadedFile;
+
   try {
-    const uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
+    uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
 
     if (!uploadedFile) {
       return res.status(400).json({
@@ -131,6 +199,8 @@ async function uploadAsset(req, res, next) {
         message: "No media file uploaded. Please attach a file using form-data."
       });
     }
+
+    await verifyUploadedFile(uploadedFile);
 
     const visibility = normalizeVisibility(req.body.visibility);
 
@@ -168,6 +238,7 @@ async function uploadAsset(req, res, next) {
       data: asset
     });
   } catch (error) {
+    cleanupUploadedFile(uploadedFile);
     next(error);
   }
 }
