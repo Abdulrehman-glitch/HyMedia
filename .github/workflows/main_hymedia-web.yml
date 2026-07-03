@@ -55,6 +55,5 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'hymedia-web'
-          slot-name: 'Production'
           package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_C3E5DB1CBC0348CD8D1529AC56C12CFA }}
