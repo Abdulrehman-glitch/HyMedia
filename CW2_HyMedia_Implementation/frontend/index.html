@@ -2,331 +2,328 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HyMedia | Cloud-Native Multimedia Platform</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HyMedia | Premium Cloud DAM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
-    <header class="app-header">
-        <div class="header-brand">
-            <div class="brand-logo" aria-hidden="true">
-                <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="36" height="36" rx="10" fill="url(#logoGrad)" />
-                    <path d="M13 24.5V11.5L26 18L13 24.5Z" fill="white" />
-                    <defs>
-                        <linearGradient id="logoGrad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#5ab4ff" />
-                            <stop offset="1" stop-color="#0d5fff" />
-                        </linearGradient>
-                    </defs>
-                </svg>
-            </div>
-            <div class="brand-text">
-                <p class="eyebrow">COM682 Cloud Native Development</p>
-                <h1>HyMedia</h1>
-                <p class="subtitle">Azure-powered multimedia sharing platform for images, video, audio and GIF content.</p>
-            </div>
+  <a class="skip-link" href="#mainContent">Skip to content</a>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">H</div>
+        <div>
+          <strong>HyMedia</strong>
+          <span>Cloud DAM</span>
+        </div>
+      </div>
+
+      <nav class="side-nav" aria-label="Workspace sections">
+        <a href="#vault" class="active">Vault</a>
+        <a href="#uploadPanel">Upload</a>
+        <a href="#securityPanel">Security</a>
+        <a href="#roadmapPanel">Premium</a>
+      </nav>
+
+      <section class="plan-card" aria-labelledby="planTitle">
+        <span class="badge badge-gold">Creator Pro</span>
+        <h2 id="planTitle">Premium media workspace</h2>
+        <p>Private storage, metadata control, content safety flags, and owner-managed publishing.</p>
+      </section>
+    </aside>
+
+    <main id="mainContent" class="main-stage">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Azure-native media platform</p>
+          <h1>Manage, protect, and publish digital assets.</h1>
         </div>
 
-        <div class="header-actions">
-            <div class="header-badge">
-                <span>Backend</span>
-                <strong>Azure App Service</strong>
-            </div>
-            <button id="openAuthBtn" class="primary-btn" type="button">Login / Signup</button>
-            <button id="logoutBtn" class="secondary-btn hidden" type="button">Logout</button>
-            <div id="authStatus" class="mini-auth-status">Not logged in</div>
+        <div class="account-panel">
+          <div id="authStatus" class="auth-status">Not signed in</div>
+          <button id="openAuthBtn" class="btn btn-primary" type="button">Sign in</button>
+          <button id="logoutBtn" class="btn btn-ghost hidden" type="button">Sign out</button>
         </div>
-    </header>
+      </header>
 
-    <main class="layout">
+      <section class="hero-console" aria-labelledby="heroTitle">
+        <div class="hero-copy">
+          <span class="status-dot">Live backend</span>
+          <h2 id="heroTitle">A production-minded DAM console for creators and teams.</h2>
+          <p>Upload images, video, and audio into private Azure Blob Storage while Cosmos DB tracks ownership, visibility, tags, and safety metadata.</p>
+          <div class="hero-actions">
+            <button id="refreshBtn" class="btn btn-primary" type="button">Refresh vault</button>
+            <a class="btn btn-ghost" href="#uploadPanel">Upload media</a>
+          </div>
+        </div>
 
-        <section class="panel hero-panel">
-            <div class="hero-content">
-                <p class="eyebrow">Live Azure API</p>
-                <h2>Cloud-native media upload, metadata storage and REST CRUD</h2>
-                <p>
-                    This frontend connects directly to the deployed HyMedia backend API on Azure App Service.
-                    Uploaded files are stored in Azure Blob Storage and metadata is stored in Azure Cosmos DB.
-                </p>
+        <div class="signal-grid" aria-label="Platform metrics">
+          <article>
+            <span>Total assets</span>
+            <strong id="totalAssets">0</strong>
+          </article>
+          <article>
+            <span>Images</span>
+            <strong id="imageAssets">0</strong>
+          </article>
+          <article>
+            <span>Protected</span>
+            <strong id="sensitiveAssets">0</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="workspace-grid">
+        <article id="uploadPanel" class="panel upload-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Ingest</p>
+              <h2>Upload to the media vault</h2>
             </div>
-            <button id="refreshBtn" class="primary-btn hero-refresh-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                    <path d="M21 3v5h-5" />
-                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                    <path d="M8 16H3v5" />
-                </svg>
-                Refresh Dashboard
-            </button>
-        </section>
+            <span class="badge">JWT protected</span>
+          </div>
 
-        <section class="grid three">
-            <article class="stat-card">
-                <div class="stat-icon stat-icon--blue" aria-hidden="true">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                    </svg>
-                </div>
-                <span>Total Assets</span>
-                <strong id="totalAssets">0</strong>
-            </article>
+          <form id="uploadForm" class="upload-form">
+            <label id="dropZone" class="drop-zone" for="mediaFile">
+              <input type="file" id="mediaFile" required />
+              <span class="drop-icon" aria-hidden="true"></span>
+              <strong>Drop media here or browse</strong>
+              <small>Images, video, and audio up to 25 MB in the current API.</small>
+            </label>
 
-            <article class="stat-card">
-                <div class="stat-icon stat-icon--purple" aria-hidden="true">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                        <circle cx="9" cy="9" r="2" />
-                        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                    </svg>
-                </div>
-                <span>Image Assets</span>
-                <strong id="imageAssets">0</strong>
-            </article>
+            <div class="form-grid">
+              <label class="field">
+                <span>Title</span>
+                <input type="text" id="title" maxlength="120" placeholder="Campaign hero image" required />
+              </label>
 
-            <article class="stat-card">
-                <div class="stat-icon stat-icon--red" aria-hidden="true">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
-                </div>
-                <span>Sensitive Assets</span>
-                <strong id="sensitiveAssets">0</strong>
-            </article>
-        </section>
+              <label class="field">
+                <span>Tags</span>
+                <input type="text" id="tags" maxlength="400" placeholder="launch, product, social" />
+              </label>
 
-        <section class="panel">
-            <div class="section-heading">
-                <div>
-                    <p class="eyebrow">System Status</p>
-                    <h2>Azure Backend Health</h2>
-                </div>
-            </div>
-            <pre id="healthOutput" class="output-box">Loading backend health...</pre>
-        </section>
+              <label class="field span-2">
+                <span>Caption</span>
+                <textarea id="caption" maxlength="1000" placeholder="Describe the asset for search and reuse."></textarea>
+              </label>
 
-        <section class="panel">
-            <div class="section-heading">
-                <div>
-                    <p class="eyebrow">Create Asset</p>
-                    <h2>Upload media to Azure Blob Storage</h2>
-                </div>
+              <label class="field">
+                <span>Location</span>
+                <input type="text" id="location" maxlength="120" placeholder="Studio A / London" />
+              </label>
+
+              <label class="field">
+                <span>Visibility</span>
+                <select id="visibility">
+                  <option value="PUBLIC">Public</option>
+                  <option value="PRIVATE_SELECTED">Private selected</option>
+                  <option value="UNLISTED_LINK">Unlisted link</option>
+                  <option value="CREATOR_PREMIUM">Creator premium</option>
+                </select>
+              </label>
             </div>
 
-            <form id="uploadForm" class="form-grid">
-                <label class="form-field span-2">
-                    <span class="field-label">Media File</span>
-                    <input type="file" id="mediaFile" required />
-                </label>
+            <fieldset class="check-grid">
+              <legend>Content controls</legend>
+              <label><input type="checkbox" id="isSensitive" /> Sensitive</label>
+              <label><input type="checkbox" id="isAdult18Plus" /> 18+</label>
+            </fieldset>
 
-                <label class="form-field">
-                    <span class="field-label">Title</span>
-                    <input type="text" id="title" placeholder="Example: London street photo" required />
-                </label>
+            <button type="submit" class="btn btn-primary full-width">Upload asset</button>
+          </form>
 
-                <label class="form-field">
-                    <span class="field-label">Tags</span>
-                    <input type="text" id="tags" placeholder="azure, blob, hymedia, cw2" />
-                </label>
+          <pre id="uploadOutput" class="output-box">Upload activity appears here.</pre>
+        </article>
 
-                <label class="form-field span-2">
-                    <span class="field-label">Caption</span>
-                    <textarea id="caption" placeholder="Write a short caption"></textarea>
-                </label>
-
-                <label class="form-field">
-                    <span class="field-label">Location</span>
-                    <input type="text" id="location" placeholder="London / Italy North" />
-                </label>
-
-                <label class="form-field">
-                    <span class="field-label">Visibility</span>
-                    <select id="visibility">
-                        <option value="PUBLIC">Public</option>
-                        <option value="PRIVATE_SELECTED">Private Selected</option>
-                        <option value="UNLISTED_LINK">Unlisted Link</option>
-                        <option value="CREATOR_PREMIUM">Creator Premium</option>
-                    </select>
-                </label>
-
-                <div class="checkbox-row span-2">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="isSensitive" />
-                        <span class="checkbox-custom" aria-hidden="true"></span>
-                        Sensitive content
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="isAdult18Plus" />
-                        <span class="checkbox-custom" aria-hidden="true"></span>
-                        18+ content
-                    </label>
-                </div>
-
-                <div class="span-2">
-                    <button type="submit" class="primary-btn upload-btn">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="17 8 12 3 7 8" />
-                            <line x1="12" y1="3" x2="12" y2="15" />
-                        </svg>
-                        Upload to Azure
-                    </button>
-                </div>
-            </form>
-
-            <pre id="uploadOutput" class="output-box">Upload response will appear here.</pre>
-        </section>
-
-        <section class="panel">
-            <div class="section-heading">
-                <div>
-                    <p class="eyebrow">Read / Update / Delete</p>
-                    <h2>Asset Gallery from Cosmos DB</h2>
-                </div>
+        <aside id="securityPanel" class="panel security-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Security posture</p>
+              <h2>Protection layers</h2>
             </div>
-            <div id="assetList" class="asset-grid"></div>
-        </section>
+          </div>
 
+          <ul class="security-list">
+            <li><strong>Hashed passwords</strong><span>bcrypt-backed account storage</span></li>
+            <li><strong>JWT access</strong><span>Protected upload, edit, and delete</span></li>
+            <li><strong>Rate limiting</strong><span>Auth and upload abuse controls</span></li>
+            <li><strong>Owner checks</strong><span>Private and premium media enforced server-side</span></li>
+          </ul>
+
+          <div class="health-card">
+            <div class="panel-heading compact">
+              <p class="eyebrow">Backend health</p>
+              <button id="copyHealthBtn" class="btn btn-ghost small" type="button">Copy</button>
+            </div>
+            <pre id="healthOutput" class="output-box compact-output">Loading backend health...</pre>
+          </div>
+        </aside>
+      </section>
+
+      <section id="vault" class="panel vault-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Asset vault</p>
+            <h2>Library</h2>
+          </div>
+          <div class="toolbar" role="search">
+            <input id="searchInput" type="search" placeholder="Search title, caption, tag, owner" aria-label="Search assets" />
+            <select id="typeFilter" aria-label="Filter by media type">
+              <option value="">All types</option>
+              <option value="image">Images</option>
+              <option value="video">Video</option>
+              <option value="audio">Audio</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="assetList" class="asset-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="roadmapPanel" class="premium-strip" aria-label="Premium platform capabilities">
+        <article>
+          <span>Next layer</span>
+          <strong>Collections</strong>
+          <p>Group assets into client-ready albums with visibility controls.</p>
+        </article>
+        <article>
+          <span>Next layer</span>
+          <strong>AI tagging</strong>
+          <p>Generate searchable tags and moderation signals after upload.</p>
+        </article>
+        <article>
+          <span>Next layer</span>
+          <strong>Analytics</strong>
+          <p>Track views, downloads, creator performance, and storage growth.</p>
+        </article>
+      </section>
     </main>
+  </div>
 
-    <!-- Auth Modal -->
-    <div id="authModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
-        <div class="modal-card auth-modal-card">
-            <div class="modal-header">
-                <div>
-                    <p class="eyebrow">HyMedia Account</p>
-                    <h2 id="authModalTitle">Login</h2>
-                </div>
-                <button id="closeAuthModal" class="icon-btn" type="button" aria-label="Close authentication modal">×</button>
-            </div>
-
-            <div class="auth-tabs" role="tablist">
-                <button id="loginTabBtn" class="auth-tab active" type="button" role="tab" aria-selected="true">Login</button>
-                <button id="signupTabBtn" class="auth-tab" type="button" role="tab" aria-selected="false">Signup</button>
-            </div>
-
-            <form id="loginForm" class="auth-form-modal">
-                <label class="form-field">
-                    <span class="field-label">Email address</span>
-                    <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email" required />
-                </label>
-                <label class="form-field">
-                    <span class="field-label">Password</span>
-                    <input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password" required />
-                </label>
-                <button type="submit" class="primary-btn full-btn">Login</button>
-                <p class="auth-helper">Use the signup tab first if this is your first HyMedia account.</p>
-            </form>
-
-            <form id="signupForm" class="auth-form-modal hidden">
-                <label class="form-field">
-                    <span class="field-label">Display name</span>
-                    <input type="text" id="signupDisplayName" placeholder="Abdulrehman" autocomplete="name" required />
-                </label>
-                <label class="form-field">
-                    <span class="field-label">Email address</span>
-                    <input type="email" id="signupEmail" placeholder="you@example.com" autocomplete="email" required />
-                </label>
-                <label class="form-field">
-                    <span class="field-label">Password</span>
-                    <input type="password" id="signupPassword" placeholder="Minimum 6 characters" autocomplete="new-password" required />
-                </label>
-                <button type="submit" class="primary-btn full-btn">Create Account</button>
-                <p class="auth-helper">Your account is stored in Azure Cosmos DB and used to protect uploads, edits and deletes.</p>
-            </form>
-
-            <pre id="authOutput" class="output-box compact-output">Authentication messages will appear here.</pre>
+  <div id="authModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <div class="modal-card auth-modal-card">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Secure access</p>
+          <h2 id="authModalTitle">Sign in</h2>
         </div>
-    </div>
+        <button id="closeAuthModal" class="icon-btn" type="button" aria-label="Close authentication modal">x</button>
+      </div>
 
-    <!-- Asset View Modal -->
-    <div id="assetViewModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="viewAssetTitle">
-        <div class="modal-card wide-modal">
-            <div class="modal-header">
-                <div>
-                    <p class="eyebrow">Asset Details</p>
-                    <h2 id="viewAssetTitle">HyMedia Asset</h2>
-                </div>
-                <button id="closeAssetViewModal" class="icon-btn" type="button" aria-label="Close asset view">×</button>
-            </div>
-            <div id="assetViewContent"></div>
+      <div class="auth-tabs" role="tablist">
+        <button id="loginTabBtn" class="auth-tab active" type="button" role="tab" aria-selected="true">Sign in</button>
+        <button id="signupTabBtn" class="auth-tab" type="button" role="tab" aria-selected="false">Create account</button>
+      </div>
+
+      <form id="loginForm" class="stacked-form">
+        <label class="field">
+          <span>Email</span>
+          <input type="email" id="loginEmail" autocomplete="email" required />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" id="loginPassword" autocomplete="current-password" required />
+        </label>
+        <button type="submit" class="btn btn-primary full-width">Sign in</button>
+      </form>
+
+      <form id="signupForm" class="stacked-form hidden">
+        <label class="field">
+          <span>Display name</span>
+          <input type="text" id="signupDisplayName" autocomplete="name" minlength="2" maxlength="80" required />
+        </label>
+        <label class="field">
+          <span>Email</span>
+          <input type="email" id="signupEmail" autocomplete="email" required />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" id="signupPassword" autocomplete="new-password" minlength="10" maxlength="128" required />
+        </label>
+        <div class="password-policy">
+          <span id="passwordMeter" class="meter"><i></i></span>
+          <small>Use 10+ characters with uppercase, lowercase, number, and symbol.</small>
         </div>
+        <button type="submit" class="btn btn-primary full-width">Create account</button>
+      </form>
+
+      <pre id="authOutput" class="output-box compact-output">Authentication messages appear here.</pre>
     </div>
+  </div>
 
-    <!-- Edit Modal -->
-    <div id="editModal" class="modal-backdrop" role="dialog" aria-modal="true">
-        <div class="modal-card">
-            <div class="modal-header">
-                <div>
-                    <p class="eyebrow">Update Asset</p>
-                    <h2>Edit HyMedia Metadata</h2>
-                </div>
-                <button id="closeEditModal" class="icon-btn" type="button" aria-label="Close edit modal">×</button>
-            </div>
-
-            <form id="editForm" class="edit-form">
-                <input type="hidden" id="editAssetId" />
-
-                <label class="form-field">
-                    <span class="field-label">Title</span>
-                    <input type="text" id="editTitle" required />
-                </label>
-
-                <label class="form-field">
-                    <span class="field-label">Tags</span>
-                    <input type="text" id="editTags" placeholder="azure, blob, hymedia" />
-                </label>
-
-                <label class="form-field span-edit-full">
-                    <span class="field-label">Caption</span>
-                    <textarea id="editCaption"></textarea>
-                </label>
-
-                <label class="form-field">
-                    <span class="field-label">Location</span>
-                    <input type="text" id="editLocation" />
-                </label>
-
-                <label class="form-field">
-                    <span class="field-label">Visibility</span>
-                    <select id="editVisibility">
-                        <option value="PUBLIC">Public</option>
-                        <option value="PRIVATE_SELECTED">Private Selected</option>
-                        <option value="UNLISTED_LINK">Unlisted Link</option>
-                        <option value="CREATOR_PREMIUM">Creator Premium</option>
-                    </select>
-                </label>
-
-                <div class="checkbox-row span-edit-full">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="editIsSensitive" />
-                        <span class="checkbox-custom" aria-hidden="true"></span>
-                        Sensitive content
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="editIsAdult18Plus" />
-                        <span class="checkbox-custom" aria-hidden="true"></span>
-                        18+ content
-                    </label>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" id="cancelEditBtn" class="secondary-btn">Cancel</button>
-                    <button type="submit" class="primary-btn">Save Changes</button>
-                </div>
-            </form>
+  <div id="assetViewModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="viewAssetTitle">
+    <div class="modal-card wide-modal">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Asset details</p>
+          <h2 id="viewAssetTitle">HyMedia asset</h2>
         </div>
+        <button id="closeAssetViewModal" class="icon-btn" type="button" aria-label="Close asset view">x</button>
+      </div>
+      <div id="assetViewContent"></div>
     </div>
+  </div>
 
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="editModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Metadata</p>
+          <h2 id="editModalTitle">Edit asset</h2>
+        </div>
+        <button id="closeEditModal" class="icon-btn" type="button" aria-label="Close edit modal">x</button>
+      </div>
 
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+      <form id="editForm" class="edit-form">
+        <input type="hidden" id="editAssetId" />
+        <label class="field">
+          <span>Title</span>
+          <input type="text" id="editTitle" maxlength="120" required />
+        </label>
+        <label class="field">
+          <span>Tags</span>
+          <input type="text" id="editTags" maxlength="400" />
+        </label>
+        <label class="field span-2">
+          <span>Caption</span>
+          <textarea id="editCaption" maxlength="1000"></textarea>
+        </label>
+        <label class="field">
+          <span>Location</span>
+          <input type="text" id="editLocation" maxlength="120" />
+        </label>
+        <label class="field">
+          <span>Visibility</span>
+          <select id="editVisibility">
+            <option value="PUBLIC">Public</option>
+            <option value="PRIVATE_SELECTED">Private selected</option>
+            <option value="UNLISTED_LINK">Unlisted link</option>
+            <option value="CREATOR_PREMIUM">Creator premium</option>
+          </select>
+        </label>
+        <fieldset class="check-grid span-2">
+          <legend>Content controls</legend>
+          <label><input type="checkbox" id="editIsSensitive" /> Sensitive</label>
+          <label><input type="checkbox" id="editIsAdult18Plus" /> 18+</label>
+        </fieldset>
+        <div class="modal-actions">
+          <button type="button" id="cancelEditBtn" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
 </body>
 
 </html>

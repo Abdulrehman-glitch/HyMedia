@@ -5,9 +5,11 @@ setupApplicationInsights();
 
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 
 const assetRoutes = require("./src/routes/assets.routes");
 const authRoutes = require("./src/routes/auth.routes");
+const { generalLimiter } = require("./src/middleware/rate-limit.middleware");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,6 +19,15 @@ const allowedOrigins = [
   "http://127.0.0.1:5500",
   "https://hymedia-web.azurewebsites.net"
 ];
+
+app.set("trust proxy", 1);
+
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: false
+  })
+);
 
 app.use(
   cors({
@@ -33,6 +44,7 @@ app.use(
   })
 );
 
+app.use(generalLimiter);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 

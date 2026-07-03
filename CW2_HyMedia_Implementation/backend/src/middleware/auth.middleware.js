@@ -27,7 +27,31 @@ function requireAuth(req, res, next) {
   }
 }
 
+function optionalAuth(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+
+  if (!authHeader.startsWith("Bearer ")) {
+    return next();
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+
+  try {
+    req.user = jwt.verify(token, getJwtSecret());
+  } catch (error) {
+    req.user = null;
+  }
+
+  return next();
+}
+
+function isAdmin(user) {
+  return user?.role === "admin";
+}
+
 module.exports = {
   requireAuth,
+  optionalAuth,
+  isAdmin,
   getJwtSecret
 };

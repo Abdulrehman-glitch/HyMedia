@@ -19,20 +19,6 @@ async function signup(req, res, next) {
   try {
     const { displayName, email, password } = req.body;
 
-    if (!displayName || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Display name, email and password are required."
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 6 characters."
-      });
-    }
-
     const user = await createUser({ displayName, email, password });
     const token = issueToken(user);
 
@@ -50,13 +36,6 @@ async function signup(req, res, next) {
 async function login(req, res, next) {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required."
-      });
-    }
 
     const user = await validateUserCredentials(email, password);
 

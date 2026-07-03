@@ -52,8 +52,14 @@ async function downloadBlobRange(blobName, start, count) {
   return blockBlobClient.download(start, count);
 }
 
+async function deleteBlobIfExists(blobName) {
+  const blockBlobClient = getBlockBlobClient(blobName);
+  return blockBlobClient.deleteIfExists();
+}
+
 module.exports = {
   uploadFileToAzureBlob,
   getBlobProperties,
-  downloadBlobRange
+  downloadBlobRange,
+  deleteBlobIfExists
 };

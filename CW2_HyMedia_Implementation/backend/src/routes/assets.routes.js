@@ -1,6 +1,9 @@
 const express = require("express");
 const upload = require("../middleware/upload.middleware");
-const { requireAuth } = require("../middleware/auth.middleware");
+const { requireAuth, optionalAuth } = require("../middleware/auth.middleware");
+const validate = require("../middleware/validate.middleware");
+const { uploadLimiter } = require("../middleware/rate-limit.middleware");
+const { assetCreateSchema, assetUpdateSchema } = require("../validators/assets.validators");
 
 const {
   listAssets,
@@ -15,14 +18,14 @@ const {
 
 const router = express.Router();
 
-router.get("/", listAssets);
-router.get("/stats", assetStats);
-router.get("/:assetId/media", streamAssetMedia);
-router.get("/:assetId", getSingleAsset);
+router.get("/", optionalAuth, listAssets);
+router.get("/stats", optionalAuth, assetStats);
+router.get("/:assetId/media", optionalAuth, streamAssetMedia);
+router.get("/:assetId", optionalAuth, getSingleAsset);
 
-router.post("/", requireAuth, createNewAsset);
-router.post("/upload", requireAuth, upload.any(), uploadAsset);
-router.put("/:assetId", requireAuth, updateExistingAsset);
+router.post("/", requireAuth, validate(assetCreateSchema), createNewAsset);
+router.post("/upload", requireAuth, uploadLimiter, upload.any(), uploadAsset);
+router.put("/:assetId", requireAuth, validate(assetUpdateSchema), updateExistingAsset);
 router.delete("/:assetId", requireAuth, deleteExistingAsset);
 
 module.exports = router;

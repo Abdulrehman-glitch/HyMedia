@@ -4,15 +4,57 @@ const {
   getAssetById,
   updateAsset,
   deleteAsset,
-  getAssetStats,
   detectMediaType
 } = require("../services/cosmos-assets.service");
 
 const {
   uploadFileToAzureBlob,
   getBlobProperties,
-  downloadBlobRange
+  downloadBlobRange,
+  deleteBlobIfExists
 } = require("../services/blob.service");
+const { isAdmin } = require("../middleware/auth.middleware");
+const { visibilitySchema } = require("../validators/assets.validators");
+
+function normalizeBoolean(value) {
+  return value === true || value === "true" || value === "on" || value === "1";
+}
+
+function normalizeVisibility(value) {
+  const visibility = String(value || "PUBLIC").toUpperCase();
+  const parsed = visibilitySchema.safeParse(visibility);
+  return parsed.success ? parsed.data : null;
+}
+
+function canManageAsset(user, asset) {
+  if (!user || !asset) return false;
+  if (isAdmin(user)) return true;
+  return Boolean(asset.ownerId && asset.ownerId === user.userId);
+}
+
+function canViewAsset(user, asset) {
+  if (!asset) return false;
+  if (asset.visibility === "PUBLIC" || asset.visibility === "UNLISTED_LINK") return true;
+  return canManageAsset(user, asset);
+}
+
+function visibleToUser(user, asset) {
+  if (canManageAsset(user, asset)) return true;
+  return asset.visibility === "PUBLIC";
+}
+
+function buildStats(assets) {
+  return {
+    totalAssets: assets.length,
+    imageAssets: assets.filter((asset) => asset.mediaType === "image").length,
+    videoAssets: assets.filter((asset) => asset.mediaType === "video").length,
+    audioAssets: assets.filter((asset) => asset.mediaType === "audio").length,
+    publicAssets: assets.filter((asset) => asset.visibility === "PUBLIC").length,
+    privateAssets: assets.filter((asset) => asset.visibility !== "PUBLIC").length,
+    sensitiveAssets: assets.filter((asset) => asset.isSensitive).length,
+    adult18PlusAssets: assets.filter((asset) => asset.isAdult18Plus).length
+  };
+}
 
 async function listAssets(req, res, next) {
   try {
@@ -21,11 +63,12 @@ async function listAssets(req, res, next) {
       tag: req.query.tag,
       visibility: req.query.visibility
     });
+    const visibleAssets = assets.filter((asset) => visibleToUser(req.user, asset));
 
     res.status(200).json({
       success: true,
-      count: assets.length,
-      data: assets
+      count: visibleAssets.length,
+      data: visibleAssets
     });
   } catch (error) {
     next(error);
@@ -41,6 +84,13 @@ async function getSingleAsset(req, res, next) {
       return res.status(404).json({
         success: false,
         message: "Asset not found"
+      });
+    }
+
+    if (!canViewAsset(req.user, asset)) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to view this asset."
       });
     }
 
@@ -82,6 +132,15 @@ async function uploadAsset(req, res, next) {
       });
     }
 
+    const visibility = normalizeVisibility(req.body.visibility);
+
+    if (!visibility) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid visibility value."
+      });
+    }
+
     const uploadedBlob = await uploadFileToAzureBlob(uploadedFile);
 
     const asset = await createAsset({
@@ -94,9 +153,9 @@ async function uploadAsset(req, res, next) {
       blobUrl: uploadedBlob.blobUrl,
       tags: req.body.tags || [],
       location: req.body.location || "",
-      visibility: (req.body.visibility || "PUBLIC").toUpperCase(),
-      isSensitive: req.body.isSensitive === "true" || req.body.isSensitive === true,
-      isAdult18Plus: req.body.isAdult18Plus === "true" || req.body.isAdult18Plus === true,
+      visibility,
+      isSensitive: normalizeBoolean(req.body.isSensitive),
+      isAdult18Plus: normalizeBoolean(req.body.isAdult18Plus),
       processingStatus: "READY",
       ownerId: req.user?.userId,
       ownerEmail: req.user?.email
@@ -122,6 +181,13 @@ async function streamAssetMedia(req, res, next) {
       return res.status(404).json({
         success: false,
         message: "Asset media not found."
+      });
+    }
+
+    if (!canViewAsset(req.user, asset)) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to access this media."
       });
     }
 
@@ -168,14 +234,23 @@ async function streamAssetMedia(req, res, next) {
 async function updateExistingAsset(req, res, next) {
   try {
     const { assetId } = req.params;
-    const updatedAsset = await updateAsset(assetId, req.body);
+    const existingAsset = await getAssetById(assetId);
 
-    if (!updatedAsset) {
+    if (!existingAsset) {
       return res.status(404).json({
         success: false,
         message: "Asset not found"
       });
     }
+
+    if (!canManageAsset(req.user, existingAsset)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the asset owner or an administrator can update this asset."
+      });
+    }
+
+    const updatedAsset = await updateAsset(assetId, req.body);
 
     res.status(200).json({
       success: true,
@@ -190,18 +265,31 @@ async function updateExistingAsset(req, res, next) {
 async function deleteExistingAsset(req, res, next) {
   try {
     const { assetId } = req.params;
-    const deletedAsset = await deleteAsset(assetId);
+    const existingAsset = await getAssetById(assetId);
 
-    if (!deletedAsset) {
+    if (!existingAsset) {
       return res.status(404).json({
         success: false,
         message: "Asset not found"
       });
     }
 
+    if (!canManageAsset(req.user, existingAsset)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the asset owner or an administrator can delete this asset."
+      });
+    }
+
+    if (existingAsset.blobName) {
+      await deleteBlobIfExists(existingAsset.blobName);
+    }
+
+    const deletedAsset = await deleteAsset(assetId);
+
     res.status(200).json({
       success: true,
-      message: "HyMedia asset metadata deleted successfully from Cosmos DB.",
+      message: "HyMedia asset and linked media deleted successfully.",
       data: deletedAsset
     });
   } catch (error) {
@@ -211,11 +299,12 @@ async function deleteExistingAsset(req, res, next) {
 
 async function assetStats(req, res, next) {
   try {
-    const stats = await getAssetStats();
+    const assets = await getAllAssets();
+    const visibleAssets = assets.filter((asset) => visibleToUser(req.user, asset));
 
     res.status(200).json({
       success: true,
-      data: stats
+      data: buildStats(visibleAssets)
     });
   } catch (error) {
     next(error);

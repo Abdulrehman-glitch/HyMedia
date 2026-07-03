@@ -46,6 +46,8 @@ async function createAsset(payload) {
     processingStatus: payload.processingStatus || "READY",
     likeCount: Number(payload.likeCount || 0),
     commentCount: Number(payload.commentCount || 0),
+    ownerId: payload.ownerId || "",
+    ownerEmail: payload.ownerEmail || "",
     createdAt: now,
     updatedAt: now,
     cloudProvider: "Microsoft Azure",
