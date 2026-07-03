@@ -44,9 +44,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    permissions:
-      id-token: write
-      contents: read
 
     steps:
       - name: Download backend artifact
@@ -54,16 +51,10 @@ jobs:
         with:
           name: hymedia-backend
 
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_F7FFD0BD96FB45CE82A3C5F9B0180DE8 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9B35277FC2724A10A87DFBEFD9D4CFA0 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_B9A2A0AB87614218A5A943C6C7F5E5DB }}
-
       - name: Deploy backend to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'hymedia-api-b00968573'
           slot-name: 'Production'
           package: .
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_HYMEDIA_API }}
