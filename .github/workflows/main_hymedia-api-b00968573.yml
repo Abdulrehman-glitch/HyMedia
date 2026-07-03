@@ -50,10 +50,40 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: hymedia-backend
+          path: hymedia-backend
+
+      - name: Create backend deployment package
+        run: |
+          cd hymedia-backend
+          zip -r ../hymedia-backend.zip .
 
       - name: Deploy backend to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'hymedia-api-b00968573'
-          package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_HYMEDIA_API }}
+        env:
+          PUBLISH_PROFILE: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_HYMEDIA_API }}
+        run: |
+          python - <<'PY'
+          import base64
+          import os
+          import urllib.request
+          import xml.etree.ElementTree as ET
+
+          root = ET.fromstring(os.environ["PUBLISH_PROFILE"])
+          profile = next(
+              item for item in root.findall("publishProfile")
+              if item.attrib.get("publishMethod") == "ZipDeploy"
+          )
+          host = profile.attrib["publishUrl"].replace("https://", "").split("/")[0]
+          url = f"https://{host}/api/zipdeploy?isAsync=false"
+          username = profile.attrib["userName"]
+          password = profile.attrib["userPWD"]
+
+          with open("hymedia-backend.zip", "rb") as package:
+              request = urllib.request.Request(url, data=package.read(), method="POST")
+
+          token = base64.b64encode(f"{username}:{password}".encode()).decode()
+          request.add_header("Authorization", f"Basic {token}")
+          request.add_header("Content-Type", "application/zip")
+
+          with urllib.request.urlopen(request, timeout=900) as response:
+              print(f"Kudu ZipDeploy completed with HTTP {response.status}")
+          PY
