@@ -416,7 +416,7 @@ This means future changes can be committed and pushed to GitHub, and Azure can r
 ```text
 Cloud_Native_Development
 │
-└── CW2_HyMedia_Implementation
+└── Hymedia_codebase
     │
     ├── backend
     │   ├── src
@@ -494,7 +494,7 @@ window.HYMEDIA_CONFIG = {
 ### Backend
 
 ```bash
-cd CW2_HyMedia_Implementation/backend
+cd Hymedia_codebase/backend
 npm install
 npm run dev
 ```
@@ -508,7 +508,7 @@ http://localhost:5000
 ### Frontend
 
 ```bash
-cd CW2_HyMedia_Implementation/frontend
+cd Hymedia_codebase/frontend
 npm install
 npm start
 ```

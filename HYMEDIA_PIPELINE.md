@@ -38,7 +38,7 @@ Application Insights
 ## 2. Repository Layout
 
 ```text
-CW2_HyMedia_Implementation/
+Hymedia_codebase/
   backend/
     server.js
     src/
@@ -64,7 +64,7 @@ CW2_HyMedia_Implementation/
 Backend:
 
 ```bash
-cd CW2_HyMedia_Implementation/backend
+cd Hymedia_codebase/backend
 npm install
 npm run dev
 ```
@@ -72,7 +72,7 @@ npm run dev
 Frontend:
 
 ```bash
-cd CW2_HyMedia_Implementation/frontend
+cd Hymedia_codebase/frontend
 npm install
 npm start
 ```

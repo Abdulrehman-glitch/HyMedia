@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'CW2_HyMedia_Implementation/backend/**'
+      - 'Hymedia_codebase/backend/**'
       - '.github/workflows/main_hymedia-api-b00968573.yml'
   workflow_dispatch:
 
@@ -24,22 +24,22 @@ jobs:
           node-version: '24.x'
 
       - name: Install backend dependencies
-        working-directory: CW2_HyMedia_Implementation/backend
+        working-directory: Hymedia_codebase/backend
         run: npm install
 
       - name: Run backend build if present
-        working-directory: CW2_HyMedia_Implementation/backend
+        working-directory: Hymedia_codebase/backend
         run: npm run build --if-present
 
       - name: Run backend tests if present
-        working-directory: CW2_HyMedia_Implementation/backend
+        working-directory: Hymedia_codebase/backend
         run: npm run test --if-present
 
       - name: Upload backend artifact
         uses: actions/upload-artifact@v4
         with:
           name: hymedia-backend
-          path: CW2_HyMedia_Implementation/backend
+          path: Hymedia_codebase/backend
 
   deploy:
     runs-on: ubuntu-latest
