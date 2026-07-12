@@ -1,7 +1,8 @@
 const express = require("express");
-const { requireAuth, requireRole } = require("../middleware/auth.middleware");
+const { requireAuth } = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
-const { moderationDecisionSchema } = require("../validators/assets.validators");
+const { moderationDecisionSchema, assetIdParamSchema, paginationQuerySchema } = require("../validators/assets.validators");
+const { PERMISSIONS, requirePermission } = require("../security/permissions");
 const {
   moderationQueue,
   decideModeration
@@ -9,11 +10,12 @@ const {
 
 const router = express.Router();
 
-router.get("/queue", requireAuth, requireRole("moderator", "admin"), moderationQueue);
+router.get("/queue", requireAuth, requirePermission(PERMISSIONS.MODERATION_REVIEW), validate(paginationQuerySchema, "query"), moderationQueue);
 router.post(
   "/:assetId/decision",
   requireAuth,
-  requireRole("moderator", "admin"),
+  requirePermission(PERMISSIONS.MODERATION_REVIEW),
+  validate(assetIdParamSchema, "params"),
   validate(moderationDecisionSchema),
   decideModeration
 );

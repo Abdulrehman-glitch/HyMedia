@@ -20,6 +20,7 @@ function codeFor(error, statusCode) {
   if (statusCode === 403) return "FORBIDDEN";
   if (statusCode === 404) return "NOT_FOUND";
   if (statusCode === 409) return "CONFLICT";
+  if (statusCode === 412) return "PRECONDITION_FAILED";
   if (statusCode === 413) return "PAYLOAD_TOO_LARGE";
   if (statusCode === 415) return "UNSUPPORTED_MEDIA_TYPE";
   if (statusCode === 423) return "ACCOUNT_LOCKED";

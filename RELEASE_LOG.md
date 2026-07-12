@@ -1,5 +1,27 @@
 # HyMedia Release Log
 
+## 1.4.0 - Permission and API hardening release
+
+Date: 2026-07-12
+
+Shipped:
+
+- Added a fine-grained permission matrix for user, creator, moderator, organisation admin, platform admin, and legacy admin roles.
+- Included effective permissions in sanitized users and short-lived access-token claims.
+- Replaced hard-coded admin/moderator route checks with permission middleware.
+- Added strict route parameter and query validation for asset, moderation, and admin routes.
+- Added optional `If-Match` support for asset update, soft delete, restore, and purge operations using Cosmos DB access conditions.
+- Added `ETag` response headers for single-asset reads and updates where Cosmos returns an `_etag`.
+- Changed media-stream cache headers so private, sensitive, adult, or owner-only responses are `private, no-store` while safe public media remains short-cacheable.
+- Updated frontend role-aware controls to use permissions instead of only checking `admin` and `moderator` role strings.
+
+Verification:
+
+- Backend syntax: `npm run check`
+- Backend tests: `npm test`
+- Frontend syntax: `npm run check`
+- Frontend tests: `npm test`
+
 ## 1.3.0 - Account lifecycle and sharing release
 
 Date: 2026-07-12

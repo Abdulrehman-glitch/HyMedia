@@ -10,7 +10,8 @@ This document tracks the requested industry-grade checklist against the actual r
 - Login rate limiting and account lockout after repeated failed attempts.
 - Session/device listing and individual session revocation.
 - Account data export and account deletion/anonymisation.
-- Role-based access control for user, creator, moderator, and admin roles.
+- Role-based access control for user, creator, moderator, organisation admin, platform admin, and legacy admin roles.
+- Fine-grained permission matrix with permission-based route guards.
 - Server-side asset ownership checks for update, delete, restore, purge, share-link creation, and share-link listing.
 - Visibility model: public, private, unlisted, organisation-only, shared, and password-protected.
 - Private/restricted media enforcement through API-streamed media access.
@@ -23,7 +24,8 @@ This document tracks the requested industry-grade checklist against the actual r
 - Moderation states, report flow, moderator queue, moderator decisions, and audit records.
 - Soft delete, recycle bin, restore, and permanent purge.
 - Blob deletion on permanent purge.
-- Request validation with Zod.
+- Request validation with Zod, including route parameter and query validation on asset, moderation, and admin routes.
+- Optional Cosmos DB `If-Match` concurrency checks for asset update, soft delete, restore, and purge operations.
 - Standard API error shape with machine-readable codes and request IDs.
 - Structured request logging.
 - Liveness, configuration health, and dependency readiness endpoints.
@@ -38,8 +40,7 @@ This document tracks the requested industry-grade checklist against the actual r
 
 ## Partially Implemented
 
-- Managed identity provider: local auth remains, but session security has been hardened.
-- Fine-grained permissions: role checks exist; a permission matrix is not yet modelled.
+- Managed identity provider: local auth remains, but session security and permission enforcement have been hardened.
 - Secure media delivery: API authorization exists; Azure private containers, SAS issuance, CDN, and Private Link require Azure configuration.
 - Industrial uploads: validation and cleanup exist; direct-to-Blob resumable uploads and chunking are not yet implemented.
 - Async media processing: processing state fields exist; worker pipeline/Event Grid/Functions are not implemented.

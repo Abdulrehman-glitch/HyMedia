@@ -1,5 +1,6 @@
 const { listUsers, findUserById, updateUserRole } = require("../services/users.service");
 const { auditFromRequest } = require("../services/audit.service");
+const { normalizeRole, ROLES } = require("../security/permissions");
 
 async function listUserAccounts(req, res, next) {
   try {
@@ -23,7 +24,10 @@ async function changeUserRole(req, res, next) {
     const { userId } = req.params;
     const { role } = req.body;
 
-    if (userId === req.user.userId && role !== "admin") {
+    const nextRole = normalizeRole(role);
+    const adminRoles = new Set([ROLES.PLATFORM_ADMIN, ROLES.LEGACY_ADMIN]);
+
+    if (userId === req.user.userId && !adminRoles.has(nextRole)) {
       return res.status(400).json({
         success: false,
         message: "Administrators cannot remove their own admin role."
@@ -39,7 +43,7 @@ async function changeUserRole(req, res, next) {
       });
     }
 
-    const updatedUser = await updateUserRole(userId, role);
+    const updatedUser = await updateUserRole(userId, nextRole);
 
     await auditFromRequest(req, {
       action: "admin.user.role.update",
@@ -47,7 +51,7 @@ async function changeUserRole(req, res, next) {
       targetId: userId,
       metadata: {
         previousRole: existingUser.role,
-        nextRole: role
+        nextRole
       }
     });
 

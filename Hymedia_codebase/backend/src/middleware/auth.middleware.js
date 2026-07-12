@@ -1,4 +1,10 @@
 const jwt = require("jsonwebtoken");
+const {
+  PERMISSIONS,
+  hasPermission,
+  requirePermission,
+  normalizeRole
+} = require("../security/permissions");
 
 const ACCESS_COOKIE_NAME = "hymedia_access_token";
 
@@ -73,11 +79,11 @@ function optionalAuth(req, res, next) {
 }
 
 function isAdmin(user) {
-  return user?.role === "admin";
+  return [normalizeRole("admin"), normalizeRole("platform_admin")].includes(normalizeRole(user?.role));
 }
 
 function isModerator(user) {
-  return user?.role === "moderator" || isAdmin(user);
+  return hasPermission(user, PERMISSIONS.MODERATION_REVIEW);
 }
 
 function requireRole(...allowedRoles) {
@@ -109,7 +115,9 @@ module.exports = {
   requireAuth,
   optionalAuth,
   requireRole,
+  requirePermission,
   isAdmin,
   isModerator,
-  getJwtSecret
+  getJwtSecret,
+  hasPermission
 };

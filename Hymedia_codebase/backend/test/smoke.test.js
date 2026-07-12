@@ -20,6 +20,16 @@ const {
 const { updateUserRoleSchema } = require("../src/validators/admin.validators");
 const { getJwtSecret } = require("../src/middleware/auth.middleware");
 const { parseRefreshToken, sanitizeSession } = require("../src/services/sessions.service");
+const {
+  assetListQuerySchema,
+  assetIdParamSchema
+} = require("../src/validators/assets.validators");
+const {
+  PERMISSIONS,
+  hasPermission,
+  permissionsForRole,
+  normalizeRole
+} = require("../src/security/permissions");
 
 function request(appInstance, path) {
   return new Promise((resolve, reject) => {
@@ -97,7 +107,25 @@ test("JWT secret has no source-code fallback", () => {
 
 test("admin role validation allows only supported roles", () => {
   assert.equal(updateUserRoleSchema.safeParse({ role: "moderator" }).success, true);
+  assert.equal(updateUserRoleSchema.safeParse({ role: "organisation_admin" }).success, true);
+  assert.equal(updateUserRoleSchema.safeParse({ role: "platform_admin" }).success, true);
   assert.equal(updateUserRoleSchema.safeParse({ role: "owner" }).success, false);
+});
+
+test("role permissions support fine-grained access checks", () => {
+  assert.equal(hasPermission({ role: "moderator" }, PERMISSIONS.MODERATION_REVIEW), true);
+  assert.equal(hasPermission({ role: "user" }, PERMISSIONS.MODERATION_REVIEW), false);
+  assert.equal(hasPermission({ role: "platform_admin" }, PERMISSIONS.USER_MANAGE_ROLES), true);
+  assert.equal(normalizeRole("organization_admin"), "organisation_admin");
+  assert.ok(permissionsForRole("creator").includes(PERMISSIONS.ASSET_SHARE));
+});
+
+test("asset route validators reject unsafe query and route input", () => {
+  assert.equal(assetListQuerySchema.safeParse({ limit: "25", offset: "0", mediaType: "image" }).success, true);
+  assert.equal(assetListQuerySchema.safeParse({ limit: "1000" }).success, false);
+  assert.equal(assetListQuerySchema.safeParse({ ownerId: "not-allowed" }).success, false);
+  assert.equal(assetIdParamSchema.safeParse({ assetId: "asset-123" }).success, true);
+  assert.equal(assetIdParamSchema.safeParse({ assetId: "" }).success, false);
 });
 
 test("share link validation limits lifetime", () => {

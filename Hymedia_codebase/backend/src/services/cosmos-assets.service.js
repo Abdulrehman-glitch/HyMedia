@@ -169,11 +169,24 @@ async function getAssetById(assetId) {
   }
 }
 
-async function updateAsset(assetId, payload) {
-  return updatePublicAsset(assetId, payload);
+async function updateAsset(assetId, payload, options = {}) {
+  return updatePublicAsset(assetId, payload, options);
 }
 
-async function replaceAsset(assetId, payload, writableFields) {
+function writeOptions(options = {}) {
+  if (!options.ifMatch) {
+    return undefined;
+  }
+
+  return {
+    accessCondition: {
+      type: "IfMatch",
+      condition: options.ifMatch
+    }
+  };
+}
+
+async function replaceAsset(assetId, payload, writableFields, options = {}) {
   const existingAsset = await getAssetById(assetId);
 
   if (!existingAsset) {
@@ -212,28 +225,28 @@ async function replaceAsset(assetId, payload, writableFields) {
   };
 
   const container = getCosmosAssetsContainer();
-  const { resource } = await container.item(assetId, assetId).replace(updatedAsset);
+  const { resource } = await container.item(assetId, assetId).replace(updatedAsset, writeOptions(options));
 
   return resource;
 }
 
-async function updatePublicAsset(assetId, payload) {
-  return replaceAsset(assetId, payload, publicWritableAssetFields);
+async function updatePublicAsset(assetId, payload, options = {}) {
+  return replaceAsset(assetId, payload, publicWritableAssetFields, options);
 }
 
-async function updateAssetSystemFields(assetId, payload) {
-  return replaceAsset(assetId, payload, systemWritableAssetFields);
+async function updateAssetSystemFields(assetId, payload, options = {}) {
+  return replaceAsset(assetId, payload, systemWritableAssetFields, options);
 }
 
-async function softDeleteAsset(assetId, userId) {
+async function softDeleteAsset(assetId, userId, options = {}) {
   return updateAssetSystemFields(assetId, {
     deletedAt: new Date().toISOString(),
     deletedBy: userId,
     processingStatus: "DELETED"
-  });
+  }, options);
 }
 
-async function restoreAsset(assetId) {
+async function restoreAsset(assetId, options = {}) {
   const existingAsset = await getAssetById(assetId);
 
   if (!existingAsset) {
@@ -250,12 +263,12 @@ async function restoreAsset(assetId) {
   };
 
   const container = getCosmosAssetsContainer();
-  const { resource } = await container.item(assetId, assetId).replace(restoredAsset);
+  const { resource } = await container.item(assetId, assetId).replace(restoredAsset, writeOptions(options));
 
   return resource;
 }
 
-async function deleteAsset(assetId) {
+async function deleteAsset(assetId, options = {}) {
   const existingAsset = await getAssetById(assetId);
 
   if (!existingAsset) {
@@ -263,7 +276,7 @@ async function deleteAsset(assetId) {
   }
 
   const container = getCosmosAssetsContainer();
-  await container.item(assetId, assetId).delete();
+  await container.item(assetId, assetId).delete(writeOptions(options));
 
   return existingAsset;
 }
@@ -559,5 +572,6 @@ module.exports = {
   listShareLinks,
   revokeShareLink,
   getActiveShareLinkByToken,
-  sanitizeShareLink
+  sanitizeShareLink,
+  writeOptions
 };

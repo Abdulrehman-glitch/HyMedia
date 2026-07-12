@@ -26,6 +26,18 @@ const visibilityLabels = {
   CREATOR_PREMIUM: "Shared users",
   PASSWORD_PROTECTED: "Password-protected"
 };
+const roles = ["user", "creator", "moderator", "organisation_admin", "platform_admin"];
+const permissions = {
+  ASSET_MANAGE_ANY: "asset:manage-any",
+  MODERATION_REVIEW: "moderation:review",
+  USER_MANAGE_ROLES: "user:manage-roles"
+};
+const rolePermissions = {
+  moderator: [permissions.MODERATION_REVIEW],
+  organisation_admin: [],
+  platform_admin: Object.values(permissions),
+  admin: Object.values(permissions)
+};
 
 const elements = {
   healthOutput: qs("#healthOutput"),
@@ -439,11 +451,23 @@ function isOwner(asset) {
 }
 
 function isModerator() {
-  return state.currentUser?.role === "moderator" || state.currentUser?.role === "admin";
+  return hasPermission(permissions.MODERATION_REVIEW);
 }
 
 function isAdmin() {
-  return state.currentUser?.role === "admin";
+  return hasPermission(permissions.USER_MANAGE_ROLES);
+}
+
+function hasPermission(permission) {
+  if (Array.isArray(state.currentUser?.permissions) && state.currentUser.permissions.includes(permission)) {
+    return true;
+  }
+
+  return (rolePermissions[state.currentUser?.role] || []).includes(permission);
+}
+
+function canManageAnyAsset() {
+  return hasPermission(permissions.ASSET_MANAGE_ANY);
 }
 
 function isMediaBlockedByModeration(asset) {
@@ -529,7 +553,7 @@ function renderAssets() {
     .map((asset) => {
       const tags = formatTags(asset.tags);
       const ownerLabel = isOwner(asset) ? "You" : asset.ownerEmail || "Unknown";
-      const canManage = isOwner(asset) || state.currentUser?.role === "admin";
+      const canManage = isOwner(asset) || canManageAnyAsset();
       const canReport = state.currentUser && !canManage;
       const actions = canManage
         ? `
@@ -663,7 +687,7 @@ function renderAdminUsers() {
             <label class="field">
               <span>Role</span>
               <select data-role-user="${escapeHtml(user.userId)}" ${isCurrentUser ? "disabled" : ""}>
-                ${["user", "creator", "moderator", "admin"].map((role) => `<option value="${role}" ${role === user.role ? "selected" : ""}>${role}</option>`).join("")}
+                ${roles.map((role) => `<option value="${role}" ${role === user.role ? "selected" : ""}>${role}</option>`).join("")}
               </select>
             </label>
             <button class="btn btn-primary small" type="button" data-action="admin-role-save" data-id="${escapeHtml(user.userId)}" ${isCurrentUser ? "disabled" : ""}>Save role</button>
@@ -792,7 +816,7 @@ function openAssetView(assetId) {
   if (!asset) return;
 
   const tags = formatTags(asset.tags);
-  const canManage = isOwner(asset) || state.currentUser?.role === "admin";
+  const canManage = isOwner(asset) || canManageAnyAsset();
   const canReport = state.currentUser && !canManage;
   const actions = canManage
     ? `

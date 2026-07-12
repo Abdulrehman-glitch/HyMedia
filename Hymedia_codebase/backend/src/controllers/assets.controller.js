@@ -85,6 +85,18 @@ function isDeleted(asset) {
   return Boolean(asset?.deletedAt);
 }
 
+function requestIfMatch(req) {
+  const header = req.headers["if-match"];
+  if (typeof header !== "string" || !header.trim()) return null;
+  return header.trim();
+}
+
+function setAssetEtag(res, asset) {
+  if (asset?._etag) {
+    res.setHeader("ETag", asset._etag);
+  }
+}
+
 function canViewAsset(user, asset) {
   if (!asset) return false;
   if (isDeleted(asset)) return canManageAsset(user, asset);
@@ -212,6 +224,7 @@ async function getSingleAsset(req, res, next) {
       });
     }
 
+    setAssetEtag(res, asset);
     res.status(200).json({
       success: true,
       data: asset
@@ -375,7 +388,9 @@ async function streamAssetMedia(req, res, next) {
 
     res.setHeader("Accept-Ranges", "bytes");
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=300");
+    const publicCacheable = assetVisibility(asset) === VISIBILITY.PUBLIC && !asset.isSensitive && !asset.isAdult18Plus;
+    res.setHeader("Cache-Control", publicCacheable ? "public, max-age=300" : "private, no-store");
+    res.setHeader("Vary", "Authorization, Cookie");
 
     if (range) {
       const parts = range.replace(/bytes=/, "").split("-");
@@ -432,7 +447,7 @@ async function updateExistingAsset(req, res, next) {
       ...req.body
     });
 
-    await updateAsset(assetId, req.body);
+    await updateAsset(assetId, req.body, { ifMatch: requestIfMatch(req) });
     const updatedAsset = await updateAssetSystemFields(assetId, {
       ...moderation,
       isSensitive: moderation.moderationStatus === MODERATION_STATUS.SENSITIVE || req.body.isSensitive
@@ -445,6 +460,7 @@ async function updateExistingAsset(req, res, next) {
       metadata: { moderationStatus: updatedAsset.moderationStatus }
     });
 
+    setAssetEtag(res, updatedAsset);
     res.status(200).json({
       success: true,
       message: "HyMedia asset updated successfully in Cosmos DB.",
@@ -474,7 +490,7 @@ async function deleteExistingAsset(req, res, next) {
       });
     }
 
-    const deletedAsset = await softDeleteAsset(assetId, req.user.userId);
+    const deletedAsset = await softDeleteAsset(assetId, req.user.userId, { ifMatch: requestIfMatch(req) });
 
     await auditFromRequest(req, {
       action: "asset.delete",
@@ -512,7 +528,7 @@ async function restoreDeletedAsset(req, res, next) {
       });
     }
 
-    const restoredAsset = await restoreAsset(assetId);
+    const restoredAsset = await restoreAsset(assetId, { ifMatch: requestIfMatch(req) });
 
     await auditFromRequest(req, {
       action: "asset.restore",
@@ -553,7 +569,7 @@ async function purgeDeletedAsset(req, res, next) {
       await deleteBlobIfExists(existingAsset.blobName);
     }
 
-    const deletedAsset = await deleteAsset(assetId);
+    const deletedAsset = await deleteAsset(assetId, { ifMatch: requestIfMatch(req) });
 
     await auditFromRequest(req, {
       action: "asset.purge",

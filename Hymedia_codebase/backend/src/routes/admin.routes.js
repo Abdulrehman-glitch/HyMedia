@@ -1,7 +1,12 @@
 const express = require("express");
-const { requireAuth, requireRole } = require("../middleware/auth.middleware");
+const { requireAuth } = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
-const { updateUserRoleSchema } = require("../validators/admin.validators");
+const {
+  updateUserRoleSchema,
+  userIdParamSchema,
+  adminListUsersQuerySchema
+} = require("../validators/admin.validators");
+const { PERMISSIONS, requirePermission } = require("../security/permissions");
 const {
   listUserAccounts,
   changeUserRole
@@ -9,9 +14,9 @@ const {
 
 const router = express.Router();
 
-router.use(requireAuth, requireRole("admin"));
+router.use(requireAuth, requirePermission(PERMISSIONS.USER_MANAGE_ROLES));
 
-router.get("/users", listUserAccounts);
-router.put("/users/:userId/role", validate(updateUserRoleSchema), changeUserRole);
+router.get("/users", validate(adminListUsersQuerySchema, "query"), listUserAccounts);
+router.put("/users/:userId/role", validate(userIdParamSchema, "params"), validate(updateUserRoleSchema), changeUserRole);
 
 module.exports = router;

@@ -22,6 +22,24 @@ function normalizeVisibilityInput(value) {
 
 const visibilitySchema = z.enum(Object.values(VISIBILITY));
 const visibilityInputSchema = z.preprocess(normalizeVisibilityInput, visibilitySchema);
+const assetIdParamSchema = z.object({
+  assetId: z.string().trim().min(1).max(120)
+}).strict();
+const shareTokenParamSchema = z.object({
+  token: z.string().trim().min(16).max(256)
+}).strict();
+const shareIdParamSchema = z.object({
+  shareId: z.string().trim().min(1).max(120)
+}).strict();
+const paginationQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).max(100000).optional()
+}).strict();
+const assetListQuerySchema = paginationQuerySchema.extend({
+  mediaType: z.enum(["image", "video", "audio", "other"]).optional(),
+  tag: z.string().trim().min(1).max(40).optional(),
+  visibility: visibilityInputSchema.optional()
+}).strict();
 
 const csvOrArrayTags = z.union([
   z.string().max(400),
@@ -75,6 +93,11 @@ const shareLinkCreateSchema = z
 module.exports = {
   assetCreateSchema,
   assetUpdateSchema,
+  assetIdParamSchema,
+  shareTokenParamSchema,
+  shareIdParamSchema,
+  paginationQuerySchema,
+  assetListQuerySchema,
   reportAssetSchema,
   moderationDecisionSchema,
   shareLinkCreateSchema,

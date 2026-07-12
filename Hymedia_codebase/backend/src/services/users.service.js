@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const { v4: uuidv4 } = require("uuid");
 const { getCosmosUsersContainer } = require("../config/cosmosClient");
+const { normalizeRole, permissionsForUser } = require("../security/permissions");
 
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
@@ -14,7 +15,8 @@ function sanitizeUser(user) {
     userId: user.userId,
     displayName: user.displayName,
     email: user.email,
-    role: user.role,
+    role: normalizeRole(user.role),
+    permissions: permissionsForUser(user),
     status: user.status || "active",
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
@@ -63,7 +65,7 @@ async function createUser({ displayName, email, password }) {
     displayName: displayName.trim(),
     email: normalizedEmail,
     passwordHash,
-    role: "user",
+    role: normalizeRole("user"),
     failedLoginAttempts: 0,
     lockUntil: null,
     createdAt: now,
@@ -157,7 +159,7 @@ async function updateUserRole(userId, role) {
 
   const updatedUser = await replaceUser({
     ...user,
-    role,
+    role: normalizeRole(role),
     updatedAt: new Date().toISOString()
   });
 

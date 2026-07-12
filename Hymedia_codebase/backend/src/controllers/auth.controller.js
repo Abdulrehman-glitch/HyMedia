@@ -27,7 +27,8 @@ function issueToken(user) {
       userId: user.userId,
       email: user.email,
       displayName: user.displayName,
-      role: user.role
+      role: user.role,
+      permissions: user.permissions || []
     },
     getJwtSecret(),
     { expiresIn: `${ACCESS_TOKEN_MINUTES}m` }

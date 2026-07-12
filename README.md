@@ -429,10 +429,10 @@ This means future changes can be committed and pushed to GitHub, and Azure can r
 
 | Method | Endpoint | Description | Auth Required |
 |---|---|---|---|
-| GET | `/api/v1/moderation/queue` | Retrieves the moderator/admin queue | Moderator/Admin |
-| POST | `/api/v1/moderation/:assetId/decision` | Applies a moderation decision | Moderator/Admin |
-| GET | `/api/v1/admin/users` | Lists users for role management | Admin |
-| PUT | `/api/v1/admin/users/:userId/role` | Updates a user's role | Admin |
+| GET | `/api/v1/moderation/queue` | Retrieves the moderation queue | `moderation:review` permission |
+| POST | `/api/v1/moderation/:assetId/decision` | Applies a moderation decision | `moderation:review` permission |
+| GET | `/api/v1/admin/users` | Lists users for role management | `user:manage-roles` permission |
+| PUT | `/api/v1/admin/users/:userId/role` | Updates a user's role | `user:manage-roles` permission |
 
 ---
 
@@ -621,14 +621,16 @@ This would make HyMedia feel more like a real multimedia social platform.
 
 ### 2. Role-Based Access Control
 
-The current authentication system includes `user`, `moderator` and `admin` roles. Future versions can extend this with richer creator and subscription roles such as:
+The current authentication system includes `user`, `creator`, `moderator`, `organisation_admin`, `platform_admin`, and legacy `admin` roles. API access is enforced through effective permissions rather than only checking role strings.
 
-- Admin
-- Creator
-- Standard User
-- Moderator
+- `asset:create`
+- `asset:manage-own`
+- `asset:manage-any`
+- `asset:share`
+- `moderation:review`
+- `user:manage-roles`
 
-Admins can manage user roles and moderators can review flagged content. Future creator roles could manage premium media.
+Platform admins can manage user roles and moderators can review flagged content. Future creator and organisation features can extend the same permission matrix.
 
 ### 3. Blob Reconciliation and Retention Policies
 
