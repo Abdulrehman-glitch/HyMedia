@@ -31,7 +31,7 @@ The platform demonstrates a practical Azure-based implementation of a multimedia
 - **Azure Application Insights** for monitoring and telemetry
 - **GitHub Actions** for CI/CD deployment workflows
 - **RESTful APIs** for CRUD operations
-- **JWT-based authentication** for protected upload/edit/delete actions
+- **Cookie-based JWT sessions** for protected upload/edit/delete actions
 
 The project is based on the original HyMedia CW1 design, which proposed a cloud-native multimedia platform supporting media uploads, metadata management, privacy controls, sensitive content handling and future creator-focused features.
 
@@ -99,7 +99,7 @@ Uploaded media files are not stored on the local server. Instead, files are uplo
 - Vanilla JavaScript
 - Node.js + Express static server
 - Fetch API for backend communication
-- Browser localStorage for storing JWT session token
+- Fetch API with `credentials: "include"` for HttpOnly cookie sessions
 
 ### Backend
 
@@ -110,6 +110,8 @@ Uploaded media files are not stored on the local server. Instead, files are uplo
 - Multer for file upload handling
 - bcryptjs for password hashing
 - jsonwebtoken for JWT authentication
+- cookie-parser for HttpOnly access and refresh cookies
+- express-rate-limit, Helmet and Zod for API hardening
 - Application Insights SDK
 - CORS middleware
 
@@ -172,13 +174,13 @@ This endpoint is useful during testing, deployment verification and the final co
 
 ### 3. User Signup and Login
 
-HyMedia includes a basic authentication system.
+HyMedia includes a cookie-based authentication system.
 
 Users can:
 
 - Create a new account
 - Login with email and password
-- Receive an authentication token
+- Receive HttpOnly access and refresh cookies
 - Upload, edit and delete assets only after login
 - See an error message when credentials are incorrect
 
@@ -201,14 +203,14 @@ GET  /api/v1/auth/me
 3. Backend checks whether the email already exists.
 4. Password is hashed using bcrypt.
 5. User record is stored in Cosmos DB.
-6. Backend returns a JWT token and user object.
+6. Backend sets short-lived access and rotating refresh cookies and returns a safe user object.
 
 ### Login Logic
 
 1. User enters email and password.
 2. Backend searches for the user in Cosmos DB.
 3. Password is compared with the stored hash.
-4. If valid, a JWT token is returned.
+4. If valid, short-lived access and rotating refresh cookies are set.
 5. If invalid, an error message is returned.
 
 ---
@@ -232,7 +234,7 @@ The upload process works as follows:
 POST /api/v1/assets/upload
 ```
 
-This endpoint is protected by JWT authentication.
+This endpoint is protected by the authenticated session cookie. Bearer tokens are still accepted by the API middleware for compatibility.
 
 ### Supported Media Types
 
@@ -334,7 +336,7 @@ Logged-in users can delete asset metadata from Cosmos DB.
 DELETE /api/v1/assets/:assetId
 ```
 
-The current implementation deletes the metadata record from Cosmos DB. Future improvements will also delete the linked Blob Storage file.
+The current implementation moves deleted assets to a recycle bin first. Permanent purge removes the Cosmos DB metadata and attempts to delete the linked Blob Storage file.
 
 ---
 
@@ -393,8 +395,14 @@ This means future changes can be committed and pushed to GitHub, and Azure can r
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/api/v1/auth/signup` | Creates a new user account |
-| POST | `/api/v1/auth/login` | Verifies user credentials and returns a JWT token |
-| GET | `/api/v1/auth/me` | Returns the authenticated user from the token |
+| POST | `/api/v1/auth/login` | Verifies user credentials and sets auth cookies |
+| POST | `/api/v1/auth/refresh` | Rotates the refresh session and renews the access cookie |
+| POST | `/api/v1/auth/logout` | Revokes the refresh session and clears auth cookies |
+| GET | `/api/v1/auth/me` | Returns the authenticated user from the session |
+| GET | `/api/v1/auth/sessions` | Lists active account sessions |
+| DELETE | `/api/v1/auth/sessions/:sessionId` | Revokes one account session |
+| GET | `/api/v1/auth/export` | Exports account data |
+| DELETE | `/api/v1/auth/account` | Deletes/anonymises the account |
 
 ### Assets
 
@@ -402,12 +410,29 @@ This means future changes can be committed and pushed to GitHub, and Azure can r
 |---|---|---|---|
 | GET | `/api/v1/assets` | Retrieves all asset metadata | No |
 | GET | `/api/v1/assets/stats` | Retrieves dashboard asset statistics | No |
+| GET | `/api/v1/assets/recycle-bin` | Retrieves the signed-in user's deleted assets | Yes |
+| GET | `/api/v1/assets/share/:token/media` | Streams media through a valid share token | No |
 | GET | `/api/v1/assets/:assetId` | Retrieves a single asset metadata record | No |
 | GET | `/api/v1/assets/:assetId/media` | Streams the media file from Azure Blob Storage | No |
 | POST | `/api/v1/assets` | Creates a metadata-only asset | Yes |
 | POST | `/api/v1/assets/upload` | Uploads a media file and creates metadata | Yes |
+| GET | `/api/v1/assets/:assetId/share-links` | Lists share links for an owned asset | Yes |
+| POST | `/api/v1/assets/:assetId/share-links` | Creates an expiring share link | Yes |
+| DELETE | `/api/v1/assets/share-links/:shareId` | Revokes a share link | Yes |
+| POST | `/api/v1/assets/:assetId/report` | Reports an asset for review | Yes |
+| POST | `/api/v1/assets/:assetId/restore` | Restores a soft-deleted asset | Yes |
+| DELETE | `/api/v1/assets/:assetId/purge` | Permanently deletes metadata and linked blob | Yes |
 | PUT | `/api/v1/assets/:assetId` | Updates asset metadata | Yes |
-| DELETE | `/api/v1/assets/:assetId` | Deletes asset metadata | Yes |
+| DELETE | `/api/v1/assets/:assetId` | Soft-deletes asset metadata into the recycle bin | Yes |
+
+### Moderation and Admin
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| GET | `/api/v1/moderation/queue` | Retrieves the moderator/admin queue | Moderator/Admin |
+| POST | `/api/v1/moderation/:assetId/decision` | Applies a moderation decision | Moderator/Admin |
+| GET | `/api/v1/admin/users` | Lists users for role management | Admin |
+| PUT | `/api/v1/admin/users/:userId/role` | Updates a user's role | Admin |
 
 ---
 
@@ -552,7 +577,7 @@ The implementation includes several security-focused decisions:
 - Blob Storage container is kept private.
 - Media preview is served through the backend instead of exposing local server storage.
 - Passwords are hashed before being stored.
-- JWT authentication is used for protected actions.
+- HttpOnly cookie-based JWT sessions are used for protected actions.
 - Upload, edit and delete actions require login.
 - CORS is configured to allow the deployed frontend and local development origins.
 - Secrets and connection strings are stored in Azure App Service environment variables rather than hardcoded in the repository.
@@ -565,16 +590,15 @@ This coursework implementation focuses on the core cloud-native functionality re
 
 Current limitations include:
 
-- User roles are basic and currently limited to normal users.
-- Metadata deletion does not yet delete the associated blob file.
+- Passkeys are not implemented yet.
 - There is no full password reset flow.
 - There is no email verification.
 - There is no advanced moderation API integration yet.
-- Sensitive and 18+ handling is frontend-based and not yet connected to an external moderation service.
+- Sensitive and 18+ handling has local moderation/status controls but is not yet connected to an external moderation service.
 - Likes and comments are not fully implemented yet.
 - Creator monetisation is planned but not implemented.
 - Search is basic and can be improved with Azure AI Search.
-- The current authentication uses JWT in localStorage, which is acceptable for coursework demonstration but could be improved using secure HttpOnly cookies.
+- Media processing is still request-path based; thumbnails, transcodes and queue workers are planned.
 
 ---
 
@@ -597,31 +621,31 @@ This would make HyMedia feel more like a real multimedia social platform.
 
 ### 2. Role-Based Access Control
 
-The current authentication system can be extended with roles such as:
+The current authentication system includes `user`, `moderator` and `admin` roles. Future versions can extend this with richer creator and subscription roles such as:
 
 - Admin
 - Creator
 - Standard User
 - Moderator
 
-Admins could manage all assets, moderators could review flagged content, and creators could manage premium media.
+Admins can manage user roles and moderators can review flagged content. Future creator roles could manage premium media.
 
-### 3. Blob Deletion During Asset Delete
+### 3. Blob Reconciliation and Retention Policies
 
-Currently, deleting an asset removes the metadata record from Cosmos DB. A future update will also delete the corresponding file from Azure Blob Storage.
+Asset deletion now uses a recycle-bin flow, and permanent purge attempts to remove both metadata and the corresponding file from Azure Blob Storage. A future update can add scheduled reconciliation and retention policies.
 
 Planned logic:
 
 ```text
 DELETE /api/v1/assets/:assetId
-1. Find asset metadata in Cosmos DB
-2. Get linked blobName
-3. Delete blob from Azure Blob Storage
-4. Delete metadata from Cosmos DB
-5. Return confirmation
+1. Mark asset as deleted and hide it from normal feeds
+2. Allow owner/admin restore from recycle bin
+3. Permanently purge when requested or after retention expiry
+4. Delete linked blob from Azure Blob Storage
+5. Delete or anonymise remaining metadata as required
 ```
 
-This will prevent orphaned files from remaining in Blob Storage.
+Scheduled reconciliation would verify that no orphaned files remain in Blob Storage.
 
 ### 4. Advanced Search and Filtering
 
@@ -735,17 +759,17 @@ Planned behaviour:
 - Unlisted assets accessible only through signed share links
 - Premium assets visible only to subscribers
 
-### 14. Secure Cookie-Based Sessions
+### 14. Passkeys and Session Policy Controls
 
-The current implementation uses JWT stored in localStorage. A more production-ready version would use:
+The current implementation already uses short-lived access cookies and rotating refresh cookies. A future production version can add:
 
-- HttpOnly cookies
-- Secure cookies
-- SameSite protection
-- Refresh tokens
-- Token expiry and revocation
+- Passkey/WebAuthn sign-in
+- Password reset and email verification
+- Session risk scoring
+- Device trust prompts
+- Organization-level session lifetime policies
 
-This would improve security against token theft.
+This would improve phishing resistance and administrative control.
 
 ### 15. Custom Domain and HTTPS Configuration
 
@@ -760,11 +784,8 @@ A custom domain would make the deployment look more professional and commercial-
 
 ### 16. Improved CI/CD Pipeline
 
-The current GitHub Actions deployment can be extended to include:
+The current GitHub Actions deployment already runs dependency installation, syntax checks, tests, high-severity audit checks, artifact packaging, Azure deployment and live health smoke checks. It can still be extended to include:
 
-- Automated linting
-- Unit tests
-- Build validation
 - Separate staging and production deployments
 - Manual approval before production release
 - Deployment badges in README
