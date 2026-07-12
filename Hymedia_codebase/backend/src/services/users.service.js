@@ -15,7 +15,10 @@ function sanitizeUser(user) {
     displayName: user.displayName,
     email: user.email,
     role: user.role,
-    createdAt: user.createdAt
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    lastLoginAt: user.lastLoginAt || null,
+    lockUntil: user.lockUntil || null
   };
 }
 
@@ -87,10 +90,50 @@ async function findUserById(userId) {
   }
 }
 
+async function listUsers(filters = {}) {
+  const container = getCosmosUsersContainer();
+  const limit = Math.min(Math.max(Number(filters.limit) || 100, 1), 100);
+  const offset = Math.max(Number(filters.offset) || 0, 0);
+
+  const { resources } = await container.items
+    .query({
+      query: `
+        SELECT * FROM c
+        WHERE c.type = @type
+        ORDER BY c.createdAt DESC
+        OFFSET @offset LIMIT @limit
+      `,
+      parameters: [
+        { name: "@type", value: "user" },
+        { name: "@offset", value: offset },
+        { name: "@limit", value: limit }
+      ]
+    })
+    .fetchAll();
+
+  return resources.map(sanitizeUser);
+}
+
 async function replaceUser(user) {
   const container = getCosmosUsersContainer();
   const { resource } = await container.item(user.id, user.id).replace(user);
   return resource;
+}
+
+async function updateUserRole(userId, role) {
+  const user = await findUserById(userId);
+
+  if (!user) {
+    return null;
+  }
+
+  const updatedUser = await replaceUser({
+    ...user,
+    role,
+    updatedAt: new Date().toISOString()
+  });
+
+  return sanitizeUser(updatedUser);
 }
 
 function isUserLocked(user) {
@@ -151,6 +194,8 @@ module.exports = {
   validateUserCredentials,
   findUserById,
   findUserByEmail,
+  listUsers,
+  updateUserRole,
   sanitizeUser,
   isUserLocked
 };

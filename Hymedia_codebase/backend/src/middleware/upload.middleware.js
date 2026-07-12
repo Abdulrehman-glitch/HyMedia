@@ -41,7 +41,10 @@ const fileFilter = (req, file, cb) => {
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Unsupported media type. Upload image, video or audio files only."));
+    const error = new Error("Unsupported media type. Upload image, video or audio files only.");
+    error.status = 415;
+    error.code = "UNSUPPORTED_MEDIA_TYPE";
+    cb(error);
   }
 };
 

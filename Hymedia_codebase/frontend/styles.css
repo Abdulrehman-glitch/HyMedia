@@ -626,6 +626,80 @@ textarea {
   gap: 16px;
 }
 
+.moderation-panel {
+  scroll-margin-top: 24px;
+}
+
+.admin-panel {
+  scroll-margin-top: 24px;
+}
+
+.queue-status {
+  margin: -6px 0 16px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.moderation-list,
+.admin-list {
+  display: grid;
+  gap: 12px;
+}
+
+.moderation-item,
+.admin-user-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.moderation-item-main {
+  min-width: 0;
+}
+
+.admin-user-main,
+.moderation-item-main {
+  min-width: 0;
+}
+
+.moderation-item h3,
+.admin-user-row h3 {
+  margin-top: 6px;
+  font-size: 21px;
+}
+
+.moderation-item p,
+.admin-user-row p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.moderation-meta {
+  grid-template-columns: 82px minmax(0, 1fr);
+}
+
+.moderation-actions {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 150px;
+}
+
+.admin-user-meta {
+  grid-template-columns: 86px minmax(0, 1fr);
+}
+
+.admin-role-controls {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 180px;
+}
+
 .asset-card {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -766,6 +840,40 @@ textarea {
   color: var(--green-dark);
   font-size: 10px;
   font-weight: 900;
+}
+
+.moderation-pill {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 8px;
+  margin-bottom: 2px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #eef2ef;
+  color: #2f3f38;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.moderation-pill.sensitive {
+  background: #fff1cc;
+  color: #654400;
+}
+
+.moderation-pill.quarantined,
+.moderation-pill.removed {
+  background: #ffe0df;
+  color: #7d1d1d;
+}
+
+.moderation-blocked {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--muted);
+  background: repeating-linear-gradient(135deg, #f4f6f4, #f4f6f4 10px, #ebefeb 10px, #ebefeb 20px);
 }
 
 .tags {
@@ -1096,8 +1204,15 @@ textarea {
 
   .form-grid,
   .edit-form,
-  .premium-strip {
+  .premium-strip,
+  .moderation-item,
+  .admin-user-row {
     grid-template-columns: 1fr;
+  }
+
+  .moderation-actions,
+  .admin-role-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .span-2 {

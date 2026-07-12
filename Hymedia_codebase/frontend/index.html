@@ -27,6 +27,8 @@
       <nav class="side-nav" aria-label="Workspace sections">
         <a href="#vault" class="active">Vault</a>
         <a href="#uploadPanel">Upload</a>
+        <a id="moderationNavLink" href="#moderationPanel" class="hidden">Moderation</a>
+        <a id="adminNavLink" href="#adminPanel" class="hidden">Users</a>
         <a href="#securityPanel">Security</a>
         <a href="#roadmapPanel">Premium</a>
       </nav>
@@ -122,9 +124,11 @@
                 <span>Visibility</span>
                 <select id="visibility">
                   <option value="PUBLIC">Public</option>
-                  <option value="PRIVATE_SELECTED">Private selected</option>
-                  <option value="UNLISTED_LINK">Unlisted link</option>
-                  <option value="CREATOR_PREMIUM">Creator premium</option>
+                  <option value="PRIVATE">Private</option>
+                  <option value="UNLISTED">Unlisted</option>
+                  <option value="ORG_ONLY">Organisation-only</option>
+                  <option value="SHARED">Shared users</option>
+                  <option value="PASSWORD_PROTECTED">Password-protected</option>
                 </select>
               </label>
             </div>
@@ -151,9 +155,9 @@
 
           <ul class="security-list">
             <li><strong>Hashed passwords</strong><span>bcrypt-backed account storage</span></li>
-            <li><strong>JWT access</strong><span>Protected upload, edit, and delete</span></li>
-            <li><strong>Rate limiting</strong><span>Auth and upload abuse controls</span></li>
-            <li><strong>Owner checks</strong><span>Private and premium media enforced server-side</span></li>
+            <li><strong>Rotating sessions</strong><span>Short-lived access and refresh rotation</span></li>
+            <li><strong>Rate limiting</strong><span>Auth, upload, and API abuse controls</span></li>
+            <li><strong>Owner checks</strong><span>Private and restricted media enforced server-side</span></li>
           </ul>
 
           <div class="health-card">
@@ -184,6 +188,32 @@
         </div>
 
         <div id="assetList" class="asset-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="moderationPanel" class="panel moderation-panel hidden" aria-labelledby="moderationTitle">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Trust queue</p>
+            <h2 id="moderationTitle">Moderation review</h2>
+          </div>
+          <button id="refreshModerationBtn" class="btn btn-ghost" type="button">Refresh queue</button>
+        </div>
+
+        <p id="moderationQueueStatus" class="queue-status">Sign in as a moderator or administrator to review reported and quarantined assets.</p>
+        <div id="moderationQueueList" class="moderation-list" aria-live="polite"></div>
+      </section>
+
+      <section id="adminPanel" class="panel admin-panel hidden" aria-labelledby="adminTitle">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Access control</p>
+            <h2 id="adminTitle">User roles</h2>
+          </div>
+          <button id="refreshAdminUsersBtn" class="btn btn-ghost" type="button">Refresh users</button>
+        </div>
+
+        <p id="adminUsersStatus" class="queue-status">Sign in as an administrator to manage user roles.</p>
+        <div id="adminUsersList" class="admin-list" aria-live="polite"></div>
       </section>
 
       <section id="roadmapPanel" class="premium-strip" aria-label="Premium platform capabilities">
@@ -306,9 +336,11 @@
           <span>Visibility</span>
           <select id="editVisibility">
             <option value="PUBLIC">Public</option>
-            <option value="PRIVATE_SELECTED">Private selected</option>
-            <option value="UNLISTED_LINK">Unlisted link</option>
-            <option value="CREATOR_PREMIUM">Creator premium</option>
+            <option value="PRIVATE">Private</option>
+            <option value="UNLISTED">Unlisted</option>
+            <option value="ORG_ONLY">Organisation-only</option>
+            <option value="SHARED">Shared users</option>
+            <option value="PASSWORD_PROTECTED">Password-protected</option>
           </select>
         </label>
         <fieldset class="check-grid span-2">

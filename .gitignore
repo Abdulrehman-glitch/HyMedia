@@ -17,3 +17,6 @@ Hymedia_codebase/frontend/.cache/
 
 .DS_Store
 Thumbs.db
+
+.agents/
+.claude/

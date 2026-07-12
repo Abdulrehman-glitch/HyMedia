@@ -11,6 +11,7 @@ const {
   revokeRefreshSession
 } = require("../services/sessions.service");
 const { ACCESS_COOKIE_NAME, getJwtSecret } = require("../middleware/auth.middleware");
+const { auditFromRequest } = require("../services/audit.service");
 
 const REFRESH_COOKIE_NAME = "hymedia_refresh_token";
 const ACCESS_TOKEN_MINUTES = 15;
@@ -73,6 +74,14 @@ async function signup(req, res, next) {
     const user = await createUser({ displayName, email, password });
     const sessionExpiresAt = await setAuthCookies(req, res, user);
 
+    await auditFromRequest(req, {
+      action: "auth.signup",
+      actorUserId: user.userId,
+      actorEmail: user.email,
+      targetType: "user",
+      targetId: user.userId
+    });
+
     return res.status(201).json({
       success: true,
       message: "HyMedia account created successfully.",
@@ -91,6 +100,13 @@ async function login(req, res, next) {
     const user = await validateUserCredentials(email, password);
 
     if (!user) {
+      await auditFromRequest(req, {
+        action: "auth.login.failed",
+        actorEmail: email,
+        targetType: "user",
+        metadata: { reason: "invalid-credentials" }
+      });
+
       return res.status(401).json({
         success: false,
         message: "Invalid email or password."
@@ -98,6 +114,14 @@ async function login(req, res, next) {
     }
 
     const sessionExpiresAt = await setAuthCookies(req, res, user);
+
+    await auditFromRequest(req, {
+      action: "auth.login.success",
+      actorUserId: user.userId,
+      actorEmail: user.email,
+      targetType: "user",
+      targetId: user.userId
+    });
 
     return res.status(200).json({
       success: true,
@@ -165,6 +189,14 @@ async function refresh(req, res, next) {
       cookieOptions(7 * 24 * 60 * 60 * 1000)
     );
 
+    await auditFromRequest(req, {
+      action: "auth.refresh",
+      actorUserId: user.userId,
+      actorEmail: user.email,
+      targetType: "session",
+      targetId: rotated.session.sessionId
+    });
+
     return res.status(200).json({
       success: true,
       message: "Session refreshed.",
@@ -183,6 +215,11 @@ async function logout(req, res, next) {
     if (refreshToken) {
       await revokeRefreshSession(refreshToken);
     }
+
+    await auditFromRequest(req, {
+      action: "auth.logout",
+      targetType: "session"
+    });
 
     clearAuthCookies(res);
     return res.status(200).json({

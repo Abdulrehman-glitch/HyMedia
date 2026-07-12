@@ -1,6 +1,27 @@
 const { z } = require("zod");
 
-const visibilitySchema = z.enum(["PUBLIC", "PRIVATE_SELECTED", "UNLISTED_LINK", "CREATOR_PREMIUM"]);
+const VISIBILITY = {
+  PUBLIC: "PUBLIC",
+  PRIVATE: "PRIVATE",
+  UNLISTED: "UNLISTED",
+  ORG_ONLY: "ORG_ONLY",
+  SHARED: "SHARED",
+  PASSWORD_PROTECTED: "PASSWORD_PROTECTED"
+};
+
+const legacyVisibilityMap = {
+  PRIVATE_SELECTED: VISIBILITY.PRIVATE,
+  UNLISTED_LINK: VISIBILITY.UNLISTED,
+  CREATOR_PREMIUM: VISIBILITY.SHARED
+};
+
+function normalizeVisibilityInput(value) {
+  const visibility = String(value || VISIBILITY.PUBLIC).trim().toUpperCase();
+  return legacyVisibilityMap[visibility] || visibility;
+}
+
+const visibilitySchema = z.enum(Object.values(VISIBILITY));
+const visibilityInputSchema = z.preprocess(normalizeVisibilityInput, visibilitySchema);
 
 const csvOrArrayTags = z.union([
   z.string().max(400),
@@ -11,16 +32,12 @@ const assetCreateSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
   caption: z.string().trim().max(1000).optional(),
   mediaType: z.enum(["image", "video", "audio", "other"]).optional(),
-  mimeType: z.string().trim().max(120).optional(),
-  fileName: z.string().trim().max(255).optional(),
-  blobName: z.string().trim().max(1024).optional(),
-  blobUrl: z.string().trim().url().max(2048).optional().or(z.literal("")),
   tags: csvOrArrayTags.optional(),
   location: z.string().trim().max(120).optional(),
-  visibility: visibilitySchema.optional(),
+  visibility: visibilityInputSchema.optional(),
   isSensitive: z.boolean().optional(),
   isAdult18Plus: z.boolean().optional()
-});
+}).strict();
 
 const assetUpdateSchema = z
   .object({
@@ -28,14 +45,33 @@ const assetUpdateSchema = z
     caption: z.string().trim().max(1000).optional(),
     tags: csvOrArrayTags.optional(),
     location: z.string().trim().max(120).optional(),
-    visibility: visibilitySchema.optional(),
+    visibility: visibilityInputSchema.optional(),
     isSensitive: z.boolean().optional(),
     isAdult18Plus: z.boolean().optional()
+  })
+  .strict();
+
+const reportAssetSchema = z
+  .object({
+    reason: z.enum(["abuse", "copyright", "privacy", "spam", "unsafe", "other"]),
+    note: z.string().trim().max(1000).optional()
+  })
+  .strict();
+
+const moderationDecisionSchema = z
+  .object({
+    decision: z.enum(["approve", "mark_sensitive", "quarantine", "remove"]),
+    note: z.string().trim().max(1000).optional()
   })
   .strict();
 
 module.exports = {
   assetCreateSchema,
   assetUpdateSchema,
-  visibilitySchema
+  reportAssetSchema,
+  moderationDecisionSchema,
+  visibilitySchema,
+  visibilityInputSchema,
+  normalizeVisibilityInput,
+  VISIBILITY
 };

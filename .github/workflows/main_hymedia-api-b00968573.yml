@@ -25,15 +25,23 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: Hymedia_codebase/backend
-        run: npm install
+        run: npm ci
+
+      - name: Check backend syntax
+        working-directory: Hymedia_codebase/backend
+        run: npm run check
 
       - name: Run backend build if present
         working-directory: Hymedia_codebase/backend
         run: npm run build --if-present
 
-      - name: Run backend tests if present
+      - name: Run backend tests
         working-directory: Hymedia_codebase/backend
-        run: npm run test --if-present
+        run: npm test
+
+      - name: Audit backend dependencies
+        working-directory: Hymedia_codebase/backend
+        run: npm audit --audit-level=high
 
       - name: Upload backend artifact
         uses: actions/upload-artifact@v4
@@ -44,6 +52,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
+    environment:
+      name: production
+      url: https://hymedia-api-b00968573-ajegdnfpa9braqet.italynorth-01.azurewebsites.net
 
     steps:
       - name: Download backend artifact
@@ -87,3 +98,6 @@ jobs:
           with urllib.request.urlopen(request, timeout=900) as response:
               print(f"Kudu ZipDeploy completed with HTTP {response.status}")
           PY
+
+      - name: Smoke check backend health
+        run: curl --fail --retry 5 --retry-delay 10 https://hymedia-api-b00968573-ajegdnfpa9braqet.italynorth-01.azurewebsites.net/api/v1/health

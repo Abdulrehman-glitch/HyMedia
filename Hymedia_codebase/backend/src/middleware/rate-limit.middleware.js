@@ -1,4 +1,4 @@
-const rateLimit = require("express-rate-limit");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 
 const standardResponse = (message) => ({
   success: false,
@@ -27,7 +27,7 @@ const uploadLimiter = rateLimit({
   limit: 30,
   standardHeaders: "draft-8",
   legacyHeaders: false,
-  keyGenerator: (req, res) => req.user?.userId || req.ip,
+  keyGenerator: (req) => req.user?.userId || ipKeyGenerator(req.ip),
   message: standardResponse("Upload limit reached. Please wait before uploading more media.")
 });
 

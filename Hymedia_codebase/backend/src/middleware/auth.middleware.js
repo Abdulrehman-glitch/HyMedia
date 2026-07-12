@@ -3,7 +3,14 @@ const jwt = require("jsonwebtoken");
 const ACCESS_COOKIE_NAME = "hymedia_access_token";
 
 function getJwtSecret() {
-  return process.env.JWT_SECRET || "HyMedia_Local_Development_Secret";
+  if (!process.env.JWT_SECRET) {
+    const error = new Error("JWT_SECRET is missing. Configure it in App Service settings or local .env.");
+    error.status = 500;
+    error.code = "CONFIG_JWT_SECRET_MISSING";
+    throw error;
+  }
+
+  return process.env.JWT_SECRET;
 }
 
 function getRequestToken(req) {
@@ -22,6 +29,8 @@ function requireAuth(req, res, next) {
   if (!token) {
     return res.status(401).json({
       success: false,
+      code: "UNAUTHENTICATED",
+      requestId: req.requestId,
       message: "Please login before performing this action."
     });
   }
@@ -30,8 +39,14 @@ function requireAuth(req, res, next) {
     req.user = jwt.verify(token, getJwtSecret());
     return next();
   } catch (error) {
+    if (error.code === "CONFIG_JWT_SECRET_MISSING") {
+      return next(error);
+    }
+
     return res.status(401).json({
       success: false,
+      code: "UNAUTHENTICATED",
+      requestId: req.requestId,
       message: "Invalid or expired login token. Please login again."
     });
   }
@@ -47,6 +62,10 @@ function optionalAuth(req, res, next) {
   try {
     req.user = jwt.verify(token, getJwtSecret());
   } catch (error) {
+    if (error.code === "CONFIG_JWT_SECRET_MISSING") {
+      return next(error);
+    }
+
     req.user = null;
   }
 
@@ -57,10 +76,40 @@ function isAdmin(user) {
   return user?.role === "admin";
 }
 
+function isModerator(user) {
+  return user?.role === "moderator" || isAdmin(user);
+}
+
+function requireRole(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        code: "UNAUTHENTICATED",
+        requestId: req.requestId,
+        message: "Please login before performing this action."
+      });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        code: "FORBIDDEN",
+        requestId: req.requestId,
+        message: "You do not have permission to perform this action."
+      });
+    }
+
+    return next();
+  };
+}
+
 module.exports = {
   ACCESS_COOKIE_NAME,
   requireAuth,
   optionalAuth,
+  requireRole,
   isAdmin,
+  isModerator,
   getJwtSecret
 };

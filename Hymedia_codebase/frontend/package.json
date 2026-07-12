@@ -1,11 +1,13 @@
 {
   "name": "frontend",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "",
   "main": "app.js",
   "scripts": {
-  "start": "node server.js"
-},
+    "start": "node server.js",
+    "check": "node scripts/check-syntax.js",
+    "test": "node --test"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

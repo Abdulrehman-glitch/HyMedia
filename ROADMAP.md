@@ -45,6 +45,30 @@ Acceptance gates:
 
 ## Phase 1 - Security Hardening
 
+Status: partially implemented on 11 July 2026.
+
+Implemented in the current codebase:
+
+- HttpOnly cookie session flow with short-lived access JWTs and rotating refresh sessions.
+- Account lockout/backoff after repeated failed login attempts.
+- Route-level schema validation for auth, assets, reports, and moderation decisions.
+- General, auth, and upload rate limits.
+- Request ID propagation with structured request logging.
+- Audit-event recording for signup, login, refresh, logout, asset upload/update/delete, reports, and moderation decisions.
+- Safer Blob names generated server-side with UUIDs instead of user-controlled filenames.
+- File extension, MIME allowlist, and magic-byte validation before upload publication.
+- Server-side visibility and moderation checks for metadata and media streaming.
+- Frontend static security headers for clickjacking, MIME sniffing, referrer policy, and browser permissions.
+- Required CI gates for dependency install reproducibility, syntax checks, smoke tests, high/critical dependency audits, production environment tracking, and post-deploy health checks.
+- Admin-only user listing and role updates with a role-management UI.
+
+Remaining Phase 1 work:
+
+- Passkeys/WebAuthn.
+- Key Vault managed identity migration.
+- Dedicated linting plus broader unit/integration coverage beyond current smoke tests.
+- Dedicated audit container or immutable logging sink.
+
 Priority: critical
 
 ### Authentication And Sessions
@@ -87,6 +111,25 @@ Implement OWASP-aligned upload controls:
 - Delete both blob and metadata on asset deletion, with a reconciliation job for orphan blobs.
 
 ## Phase 2 - Moderation And Trust
+
+Status: foundation implemented on 11 July 2026.
+
+Implemented in the current codebase:
+
+- Moderation states on assets: `approved`, `sensitive`, `quarantined`, and `removed`.
+- Local policy moderation for upload and metadata edits until Azure AI Content Safety is configured.
+- Server-side quarantine enforcement: quarantined/removed media cannot be streamed by normal users.
+- Report endpoint for signed-in users.
+- Moderator queue endpoint for `moderator` and `admin` roles.
+- Moderator decision endpoint for approve, mark sensitive, quarantine, and remove.
+- Frontend moderation badges, blocked-media placeholder, report action, and role-gated moderator queue UI.
+
+Remaining Phase 2 work:
+
+- Azure AI Content Safety integration for image/text analysis.
+- Appeals workflow and policy pages.
+- Copyright/IP takedown workflow.
+- Comment moderation once comments are implemented.
 
 Priority: critical for user-generated media
 

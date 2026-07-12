@@ -1,11 +1,13 @@
 {
   "name": "backend",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "check": "node scripts/check-syntax.js",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +16,7 @@
   "dependencies": {
     "@azure/cosmos": "^4.9.3",
     "@azure/storage-blob": "^12.31.0",
-    "applicationinsights": "^3.14.0",
+    "applicationinsights": "^3.15.1",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -27,6 +29,19 @@
     "multer": "^2.1.1",
     "uuid": "^14.0.0",
     "zod": "^4.4.3"
+  },
+  "overrides": {
+    "@opentelemetry/core": "^2.9.0",
+    "@opentelemetry/resources": "^2.9.0",
+    "@opentelemetry/sdk-metrics": "^2.9.0",
+    "@opentelemetry/sdk-trace-base": "^2.9.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.220.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.220.0",
+    "@opentelemetry/exporter-metrics-otlp-proto": "^0.220.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.220.0",
+    "@opentelemetry/otlp-exporter-base": "^0.220.0",
+    "@opentelemetry/otlp-transformer": "^0.220.0",
+    "@opentelemetry/sdk-logs": "^0.220.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

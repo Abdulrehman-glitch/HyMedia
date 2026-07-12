@@ -1,4 +1,5 @@
 const fs = require("fs");
+const crypto = require("crypto");
 const path = require("path");
 const { getBlobContainerClient } = require("../config/blobClient");
 
@@ -13,14 +14,15 @@ async function uploadFileToAzureBlob(file) {
   await containerClient.createIfNotExists();
 
   const extension = path.extname(file.originalname).toLowerCase();
-  const safeOriginalName = file.originalname.replace(/\s+/g, "-").toLowerCase();
-  const blobName = `assets/${new Date().getFullYear()}/${Date.now()}-${safeOriginalName}`;
+  const safeOriginalName = path.basename(file.originalname).replace(/\s+/g, "-").toLowerCase();
+  const contentType = file.detectedMimeType || file.mimetype;
+  const blobName = `assets/${new Date().getFullYear()}/${crypto.randomUUID()}${extension}`;
 
   const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
   await blockBlobClient.uploadFile(file.path, {
     blobHTTPHeaders: {
-      blobContentType: file.mimetype
+      blobContentType: contentType
     },
     metadata: {
       originalName: safeOriginalName,
@@ -36,7 +38,7 @@ async function uploadFileToAzureBlob(file) {
     blobName,
     blobUrl: blockBlobClient.url,
     originalName: file.originalname,
-    mimeType: file.mimetype,
+    mimeType: contentType,
     size: file.size,
     extension
   };
