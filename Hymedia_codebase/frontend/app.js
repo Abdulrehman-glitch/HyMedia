@@ -522,15 +522,15 @@ function renderMedia(asset, mode = "card") {
   const safeTitle = escapeHtml(asset.title || "HyMedia asset");
   let element = '<span class="preview-placeholder">No preview</span>';
 
-  if (asset.mediaType === "image" && asset.blobName) {
+  if (asset.mediaType === "image" && asset.hasMedia !== false) {
     element = `<img class="${blurClass}" src="${url}" alt="${safeTitle}" loading="lazy" />`;
   }
 
-  if (asset.mediaType === "video" && asset.blobName) {
+  if (asset.mediaType === "video" && asset.hasMedia !== false) {
     element = `<video class="${blurClass}" controls preload="metadata" playsinline><source src="${url}" type="${escapeHtml(asset.mimeType || "video/mp4")}" /></video>`;
   }
 
-  if (asset.mediaType === "audio" && asset.blobName) {
+  if (asset.mediaType === "audio" && asset.hasMedia !== false) {
     element = `<div class="audio-preview ${blurClass}"><span>Audio asset</span><audio controls preload="metadata"><source src="${url}" type="${escapeHtml(asset.mimeType || "audio/mpeg")}" /></audio></div>`;
   }
 

@@ -26,6 +26,7 @@ This document tracks the requested industry-grade checklist against the actual r
 - Blob deletion on permanent purge.
 - Request validation with Zod, including route parameter and query validation on asset, moderation, and admin routes.
 - Optional Cosmos DB `If-Match` concurrency checks for asset update, soft delete, restore, and purge operations.
+- Asset response serialization that suppresses direct Blob Storage URLs, blob names, and Cosmos internal fields even for legacy records.
 - Standard API error shape with machine-readable codes and request IDs.
 - Structured request logging.
 - Liveness, configuration health, and dependency readiness endpoints.

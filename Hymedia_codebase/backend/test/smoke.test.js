@@ -30,6 +30,7 @@ const {
   permissionsForRole,
   normalizeRole
 } = require("../src/security/permissions");
+const { sanitizeAsset } = require("../src/serializers/assets.serializer");
 
 function request(appInstance, path) {
   return new Promise((resolve, reject) => {
@@ -126,6 +127,26 @@ test("asset route validators reject unsafe query and route input", () => {
   assert.equal(assetListQuerySchema.safeParse({ ownerId: "not-allowed" }).success, false);
   assert.equal(assetIdParamSchema.safeParse({ assetId: "asset-123" }).success, true);
   assert.equal(assetIdParamSchema.safeParse({ assetId: "" }).success, false);
+});
+
+test("asset serializer hides direct blob storage internals", () => {
+  const serialized = sanitizeAsset({
+    assetId: "asset-123",
+    title: "Private media",
+    blobName: "assets/2026/private.jpg",
+    blobUrl: "https://storage.example/media/private.jpg",
+    _etag: "\"etag-value\"",
+    _rid: "rid",
+    _self: "self",
+    _attachments: "attachments",
+    _ts: 123
+  });
+
+  assert.equal(serialized.blobUrl, "");
+  assert.equal(serialized.hasMedia, true);
+  assert.equal(serialized.etag, "\"etag-value\"");
+  assert.equal(Object.hasOwn(serialized, "blobName"), false);
+  assert.equal(Object.hasOwn(serialized, "_rid"), false);
 });
 
 test("share link validation limits lifetime", () => {

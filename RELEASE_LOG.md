@@ -12,6 +12,7 @@ Shipped:
 - Added strict route parameter and query validation for asset, moderation, and admin routes.
 - Added optional `If-Match` support for asset update, soft delete, restore, and purge operations using Cosmos DB access conditions.
 - Added `ETag` response headers for single-asset reads and updates where Cosmos returns an `_etag`.
+- Added asset response serialization so historical records no longer expose direct Blob Storage URLs, blob names, or Cosmos internal metadata.
 - Changed media-stream cache headers so private, sensitive, adult, or owner-only responses are `private, no-store` while safe public media remains short-cacheable.
 - Updated frontend role-aware controls to use permissions instead of only checking `admin` and `moderator` role strings.
 

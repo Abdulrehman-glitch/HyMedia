@@ -17,6 +17,7 @@ const { softDeleteUser } = require("../services/users.service");
 const { getAssetsByOwner } = require("../services/cosmos-assets.service");
 const { ACCESS_COOKIE_NAME, getJwtSecret } = require("../middleware/auth.middleware");
 const { auditFromRequest } = require("../services/audit.service");
+const { sanitizeAssets } = require("../serializers/assets.serializer");
 
 const REFRESH_COOKIE_NAME = "hymedia_refresh_token";
 const ACCESS_TOKEN_MINUTES = 15;
@@ -299,7 +300,7 @@ async function exportAccount(req, res, next) {
       exportedAt: new Date().toISOString(),
       data: {
         user,
-        assets,
+        assets: sanitizeAssets(assets),
         sessions: userSessions
       }
     });

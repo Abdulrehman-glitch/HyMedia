@@ -28,6 +28,7 @@ const {
 const { isAdmin, isModerator } = require("../middleware/auth.middleware");
 const { visibilityInputSchema, normalizeVisibilityInput, VISIBILITY } = require("../validators/assets.validators");
 const { auditFromRequest } = require("../services/audit.service");
+const { sanitizeAsset, sanitizeAssets } = require("../serializers/assets.serializer");
 const {
   MODERATION_STATUS,
   moderateAssetCandidate,
@@ -198,7 +199,7 @@ async function listAssets(req, res, next) {
         limit: Math.min(Math.max(Number(req.query.limit) || 50, 1), 100),
         offset: Math.max(Number(req.query.offset) || 0, 0)
       },
-      data: visibleAssets
+      data: sanitizeAssets(visibleAssets)
     });
   } catch (error) {
     next(error);
@@ -227,7 +228,7 @@ async function getSingleAsset(req, res, next) {
     setAssetEtag(res, asset);
     res.status(200).json({
       success: true,
-      data: asset
+      data: sanitizeAsset(asset)
     });
   } catch (error) {
     next(error);
@@ -255,7 +256,7 @@ async function createNewAsset(req, res, next) {
     res.status(201).json({
       success: true,
       message: "HyMedia asset metadata created successfully in Azure Cosmos DB.",
-      data: asset
+      data: sanitizeAsset(asset)
     });
   } catch (error) {
     next(error);
@@ -341,7 +342,7 @@ async function uploadAsset(req, res, next) {
         size: uploadedBlob.size,
         extension: uploadedBlob.extension
       },
-      data: asset
+      data: sanitizeAsset(asset)
     });
   } catch (error) {
     cleanupUploadedFile(uploadedFile);
@@ -464,7 +465,7 @@ async function updateExistingAsset(req, res, next) {
     res.status(200).json({
       success: true,
       message: "HyMedia asset updated successfully in Cosmos DB.",
-      data: updatedAsset
+      data: sanitizeAsset(updatedAsset)
     });
   } catch (error) {
     next(error);
@@ -502,7 +503,7 @@ async function deleteExistingAsset(req, res, next) {
     res.status(200).json({
       success: true,
       message: "HyMedia asset moved to recycle bin.",
-      data: deletedAsset
+      data: sanitizeAsset(deletedAsset)
     });
   } catch (error) {
     next(error);
@@ -539,7 +540,7 @@ async function restoreDeletedAsset(req, res, next) {
     return res.status(200).json({
       success: true,
       message: "Asset restored.",
-      data: restoredAsset
+      data: sanitizeAsset(restoredAsset)
     });
   } catch (error) {
     next(error);
@@ -581,7 +582,7 @@ async function purgeDeletedAsset(req, res, next) {
     return res.status(200).json({
       success: true,
       message: "Asset permanently deleted.",
-      data: deletedAsset
+      data: sanitizeAsset(deletedAsset)
     });
   } catch (error) {
     next(error);
@@ -598,7 +599,7 @@ async function recycleBin(req, res, next) {
     return res.status(200).json({
       success: true,
       count: assets.length,
-      data: assets
+      data: sanitizeAssets(assets)
     });
   } catch (error) {
     next(error);
@@ -789,7 +790,7 @@ async function moderationQueue(req, res, next) {
     return res.status(200).json({
       success: true,
       count: assets.length,
-      data: assets
+      data: sanitizeAssets(assets)
     });
   } catch (error) {
     next(error);
@@ -824,7 +825,7 @@ async function decideModeration(req, res, next) {
     return res.status(200).json({
       success: true,
       message: "Moderation decision applied.",
-      data: updatedAsset
+      data: sanitizeAsset(updatedAsset)
     });
   } catch (error) {
     next(error);
