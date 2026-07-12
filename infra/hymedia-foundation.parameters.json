@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "suffix": {
+      "value": "b00968573"
+    },
+    "storageAccountName": {
+      "value": "hymediab00968573"
+    },
+    "cosmosAccountName": {
+      "value": "hymedia-cosmos-b00968573"
+    },
+    "cosmosDatabaseName": {
+      "value": "hymedia-db"
+    },
+    "keyVaultName": {
+      "value": "hymedia-kv-b00968573"
+    },
+    "apiAppName": {
+      "value": "hymedia-api-b00968573"
+    }
+  }
+}

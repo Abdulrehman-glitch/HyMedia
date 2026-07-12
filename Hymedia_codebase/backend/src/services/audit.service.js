@@ -1,9 +1,9 @@
 const crypto = require("crypto");
-const { getCosmosUsersContainer } = require("../config/cosmosClient");
+const { getCosmosAuditContainer } = require("../config/cosmosClient");
 
 async function recordAuditEvent(event) {
   try {
-    const container = getCosmosUsersContainer();
+    const container = getCosmosAuditContainer();
     const now = new Date().toISOString();
     const auditId = crypto.randomUUID();
 

@@ -27,7 +27,16 @@ function getCosmosUsersContainer() {
   return client.database(databaseName).container(containerName);
 }
 
+function getCosmosAuditContainer() {
+  const client = getCosmosClient();
+  const databaseName = process.env.COSMOS_DATABASE_NAME || "hymedia-db";
+  const containerName = process.env.COSMOS_AUDIT_CONTAINER_NAME || "audit";
+
+  return client.database(databaseName).container(containerName);
+}
+
 module.exports = {
   getCosmosAssetsContainer,
-  getCosmosUsersContainer
+  getCosmosUsersContainer,
+  getCosmosAuditContainer
 };
