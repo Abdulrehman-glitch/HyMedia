@@ -8,8 +8,13 @@ const {
 const {
   createRefreshSession,
   rotateRefreshSession,
-  revokeRefreshSession
+  revokeRefreshSession,
+  listUserSessions,
+  revokeSessionById,
+  revokeAllUserSessions
 } = require("../services/sessions.service");
+const { softDeleteUser } = require("../services/users.service");
+const { getAssetsByOwner } = require("../services/cosmos-assets.service");
 const { ACCESS_COOKIE_NAME, getJwtSecret } = require("../middleware/auth.middleware");
 const { auditFromRequest } = require("../services/audit.service");
 
@@ -231,10 +236,109 @@ async function logout(req, res, next) {
   }
 }
 
+async function sessions(req, res, next) {
+  try {
+    const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME] || "";
+    const userSessions = await listUserSessions(req.user.userId, refreshToken);
+
+    return res.status(200).json({
+      success: true,
+      count: userSessions.length,
+      data: userSessions
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function revokeSession(req, res, next) {
+  try {
+    const { sessionId } = req.params;
+    const revoked = await revokeSessionById(req.user.userId, sessionId);
+
+    if (!revoked) {
+      return res.status(404).json({
+        success: false,
+        code: "NOT_FOUND",
+        message: "Session not found."
+      });
+    }
+
+    await auditFromRequest(req, {
+      action: "auth.session.revoke",
+      targetType: "session",
+      targetId: sessionId
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Session revoked.",
+      data: revoked
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function exportAccount(req, res, next) {
+  try {
+    const storedUser = await findUserById(req.user.userId);
+    const user = sanitizeUser(storedUser);
+    const assets = await getAssetsByOwner(req.user.userId);
+    const userSessions = await listUserSessions(req.user.userId, req.cookies?.[REFRESH_COOKIE_NAME] || "");
+
+    await auditFromRequest(req, {
+      action: "auth.account.export",
+      targetType: "user",
+      targetId: req.user.userId
+    });
+
+    return res.status(200).json({
+      success: true,
+      exportedAt: new Date().toISOString(),
+      data: {
+        user,
+        assets,
+        sessions: userSessions
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function deleteAccount(req, res, next) {
+  try {
+    const deletedUser = await softDeleteUser(req.user.userId);
+
+    await revokeAllUserSessions(req.user.userId, "account-deleted");
+
+    await auditFromRequest(req, {
+      action: "auth.account.delete",
+      targetType: "user",
+      targetId: req.user.userId
+    });
+
+    clearAuthCookies(res);
+
+    return res.status(200).json({
+      success: true,
+      message: "Account deleted and current session revoked.",
+      data: deletedUser
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   signup,
   login,
   me,
   refresh,
-  logout
+  logout,
+  sessions,
+  revokeSession,
+  exportAccount,
+  deleteAccount
 };

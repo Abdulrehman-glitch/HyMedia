@@ -15,6 +15,7 @@ function sanitizeUser(user) {
     displayName: user.displayName,
     email: user.email,
     role: user.role,
+    status: user.status || "active",
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     lastLoginAt: user.lastLoginAt || null,
@@ -90,6 +91,29 @@ async function findUserById(userId) {
   }
 }
 
+async function softDeleteUser(userId) {
+  const user = await findUserById(userId);
+
+  if (!user) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const deletedUser = await replaceUser({
+    ...user,
+    status: "deleted",
+    deletedAt: now,
+    email: `deleted-${user.userId}@deleted.hymedia.local`,
+    displayName: "Deleted HyMedia user",
+    passwordHash: "",
+    failedLoginAttempts: 0,
+    lockUntil: null,
+    updatedAt: now
+  });
+
+  return sanitizeUser(deletedUser);
+}
+
 async function listUsers(filters = {}) {
   const container = getCosmosUsersContainer();
   const limit = Math.min(Math.max(Number(filters.limit) || 100, 1), 100);
@@ -124,6 +148,10 @@ async function updateUserRole(userId, role) {
   const user = await findUserById(userId);
 
   if (!user) {
+    return null;
+  }
+
+  if (user.status === "deleted") {
     return null;
   }
 
@@ -197,5 +225,6 @@ module.exports = {
   listUsers,
   updateUserRole,
   sanitizeUser,
-  isUserLocked
+  isUserLocked,
+  softDeleteUser
 };

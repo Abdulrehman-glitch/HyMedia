@@ -1,16 +1,20 @@
 const { v4: uuidv4 } = require("uuid");
+const crypto = require("crypto");
 const { getCosmosAssetsContainer } = require("../config/cosmosClient");
 const { MODERATION_STATUS } = require("./moderation.service");
 const { normalizeVisibilityInput, VISIBILITY } = require("../validators/assets.validators");
 
-const clientWritableAssetFields = new Set([
+const publicWritableAssetFields = new Set([
   "title",
   "caption",
   "tags",
   "location",
   "visibility",
   "isSensitive",
-  "isAdult18Plus",
+  "isAdult18Plus"
+]);
+
+const systemWritableAssetFields = new Set([
   "moderationStatus",
   "moderationProvider",
   "moderationCheckedAt",
@@ -20,7 +24,14 @@ const clientWritableAssetFields = new Set([
   "moderationReviewedAt",
   "moderationReviewerNote",
   "removedAt",
-  "reportCount"
+  "reportCount",
+  "isSensitive",
+  "isAdult18Plus",
+  "processingStatus",
+  "deletedAt",
+  "deletedBy",
+  "restoredAt",
+  "purgedAt"
 ]);
 
 function normalizeTags(tags) {
@@ -93,7 +104,10 @@ async function getAllAssets(filters = {}) {
   const container = getCosmosAssetsContainer();
 
   let query = "SELECT * FROM c";
-  const conditions = ["(NOT IS_DEFINED(c.type) OR c.type = @assetType)"];
+  const conditions = [
+    "(NOT IS_DEFINED(c.type) OR c.type = @assetType)",
+    "(NOT IS_DEFINED(c.deletedAt) OR IS_NULL(c.deletedAt))"
+  ];
   const parameters = [{ name: "@assetType", value: "asset" }];
 
   if (filters.mediaType) {
@@ -156,6 +170,10 @@ async function getAssetById(assetId) {
 }
 
 async function updateAsset(assetId, payload) {
+  return updatePublicAsset(assetId, payload);
+}
+
+async function replaceAsset(assetId, payload, writableFields) {
   const existingAsset = await getAssetById(assetId);
 
   if (!existingAsset) {
@@ -164,7 +182,7 @@ async function updateAsset(assetId, payload) {
 
   const allowedPayload = {};
   for (const [key, value] of Object.entries(payload || {})) {
-    if (clientWritableAssetFields.has(key)) {
+    if (writableFields.has(key)) {
       allowedPayload[key] = value;
     }
   }
@@ -199,6 +217,44 @@ async function updateAsset(assetId, payload) {
   return resource;
 }
 
+async function updatePublicAsset(assetId, payload) {
+  return replaceAsset(assetId, payload, publicWritableAssetFields);
+}
+
+async function updateAssetSystemFields(assetId, payload) {
+  return replaceAsset(assetId, payload, systemWritableAssetFields);
+}
+
+async function softDeleteAsset(assetId, userId) {
+  return updateAssetSystemFields(assetId, {
+    deletedAt: new Date().toISOString(),
+    deletedBy: userId,
+    processingStatus: "DELETED"
+  });
+}
+
+async function restoreAsset(assetId) {
+  const existingAsset = await getAssetById(assetId);
+
+  if (!existingAsset) {
+    return null;
+  }
+
+  const restoredAsset = {
+    ...existingAsset,
+    deletedAt: null,
+    deletedBy: "",
+    restoredAt: new Date().toISOString(),
+    processingStatus: existingAsset.blobName ? "READY" : existingAsset.processingStatus || "READY",
+    updatedAt: new Date().toISOString()
+  };
+
+  const container = getCosmosAssetsContainer();
+  const { resource } = await container.item(assetId, assetId).replace(restoredAsset);
+
+  return resource;
+}
+
 async function deleteAsset(assetId) {
   const existingAsset = await getAssetById(assetId);
 
@@ -210,6 +266,197 @@ async function deleteAsset(assetId) {
   await container.item(assetId, assetId).delete();
 
   return existingAsset;
+}
+
+async function getDeletedAssetsByOwner(ownerId, filters = {}) {
+  const container = getCosmosAssetsContainer();
+  const limit = Math.min(Math.max(Number(filters.limit) || 50, 1), 100);
+  const offset = Math.max(Number(filters.offset) || 0, 0);
+
+  const { resources } = await container.items
+    .query({
+      query: `
+        SELECT * FROM c
+        WHERE (NOT IS_DEFINED(c.type) OR c.type = @assetType)
+          AND c.ownerId = @ownerId
+          AND IS_DEFINED(c.deletedAt)
+          AND NOT IS_NULL(c.deletedAt)
+        ORDER BY c.deletedAt DESC
+        OFFSET @offset LIMIT @limit
+      `,
+      parameters: [
+        { name: "@assetType", value: "asset" },
+        { name: "@ownerId", value: ownerId },
+        { name: "@offset", value: offset },
+        { name: "@limit", value: limit }
+      ]
+    })
+    .fetchAll();
+
+  return resources;
+}
+
+async function getAssetsByOwner(ownerId, filters = {}) {
+  const container = getCosmosAssetsContainer();
+  const limit = Math.min(Math.max(Number(filters.limit) || 100, 1), 500);
+  const offset = Math.max(Number(filters.offset) || 0, 0);
+
+  const { resources } = await container.items
+    .query({
+      query: `
+        SELECT * FROM c
+        WHERE (NOT IS_DEFINED(c.type) OR c.type = @assetType)
+          AND c.ownerId = @ownerId
+        ORDER BY c.createdAt DESC
+        OFFSET @offset LIMIT @limit
+      `,
+      parameters: [
+        { name: "@assetType", value: "asset" },
+        { name: "@ownerId", value: ownerId },
+        { name: "@offset", value: offset },
+        { name: "@limit", value: limit }
+      ]
+    })
+    .fetchAll();
+
+  return resources;
+}
+
+function hashShareToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function createShareSecret() {
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+function sanitizeShareLink(shareLink, includeToken = false) {
+  if (!shareLink) return null;
+
+  const sanitized = {
+    shareId: shareLink.shareId,
+    assetId: shareLink.assetId,
+    ownerId: shareLink.ownerId,
+    permission: shareLink.permission,
+    expiresAt: shareLink.expiresAt,
+    revokedAt: shareLink.revokedAt || null,
+    createdAt: shareLink.createdAt,
+    updatedAt: shareLink.updatedAt,
+    viewCount: Number(shareLink.viewCount || 0)
+  };
+
+  if (includeToken) {
+    sanitized.token = shareLink.token;
+  }
+
+  return sanitized;
+}
+
+async function createShareLink(asset, payload = {}) {
+  const container = getCosmosAssetsContainer();
+  const now = new Date().toISOString();
+  const shareId = uuidv4();
+  const token = createShareSecret();
+  const expiresInHours = Math.min(Math.max(Number(payload.expiresInHours) || 24, 1), 24 * 30);
+  const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000).toISOString();
+
+  const shareLink = {
+    id: shareId,
+    shareId,
+    type: "share-link",
+    assetId: asset.assetId,
+    ownerId: asset.ownerId || "",
+    tokenHash: hashShareToken(token),
+    permission: payload.permission || "view",
+    expiresAt,
+    revokedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    viewCount: 0,
+    token
+  };
+
+  const document = { ...shareLink };
+  delete document.token;
+  await container.items.create(document);
+
+  return sanitizeShareLink(shareLink, true);
+}
+
+async function listShareLinks(assetId) {
+  const container = getCosmosAssetsContainer();
+  const { resources } = await container.items
+    .query({
+      query: `
+        SELECT * FROM c
+        WHERE c.type = @type AND c.assetId = @assetId
+        ORDER BY c.createdAt DESC
+      `,
+      parameters: [
+        { name: "@type", value: "share-link" },
+        { name: "@assetId", value: assetId }
+      ]
+    })
+    .fetchAll();
+
+  return resources.map((shareLink) => sanitizeShareLink(shareLink));
+}
+
+async function revokeShareLink(shareId, ownerId) {
+  const container = getCosmosAssetsContainer();
+
+  try {
+    const { resource } = await container.item(shareId, shareId).read();
+    if (!resource || resource.ownerId !== ownerId) {
+      return null;
+    }
+
+    const now = new Date().toISOString();
+    const revoked = {
+      ...resource,
+      revokedAt: now,
+      updatedAt: now
+    };
+
+    const response = await container.item(shareId, shareId).replace(revoked);
+    return sanitizeShareLink(response.resource);
+  } catch (error) {
+    if (error.code === 404) return null;
+    throw error;
+  }
+}
+
+async function getActiveShareLinkByToken(token) {
+  const container = getCosmosAssetsContainer();
+  const tokenHash = hashShareToken(token);
+
+  const { resources } = await container.items
+    .query({
+      query: `
+        SELECT * FROM c
+        WHERE c.type = @type AND c.tokenHash = @tokenHash
+      `,
+      parameters: [
+        { name: "@type", value: "share-link" },
+        { name: "@tokenHash", value: tokenHash }
+      ]
+    })
+    .fetchAll();
+
+  const shareLink = resources[0];
+  if (!shareLink || shareLink.revokedAt || new Date(shareLink.expiresAt).getTime() <= Date.now()) {
+    return null;
+  }
+
+  const updated = {
+    ...shareLink,
+    viewCount: Number(shareLink.viewCount || 0) + 1,
+    lastViewedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  await container.item(shareLink.shareId, shareLink.shareId).replace(updated);
+  return sanitizeShareLink(updated);
 }
 
 async function getAssetStats() {
@@ -249,7 +496,7 @@ async function createAssetReport(asset, reporter, payload) {
 
   await container.items.create(report);
 
-  await updateAsset(asset.assetId, {
+  await updateAssetSystemFields(asset.assetId, {
     reportCount: Number(asset.reportCount || 0) + 1,
     requiresHumanReview: true,
     moderationStatus: asset.moderationStatus === MODERATION_STATUS.REMOVED
@@ -297,9 +544,20 @@ module.exports = {
   getAllAssets,
   getAssetById,
   updateAsset,
+  updatePublicAsset,
+  updateAssetSystemFields,
+  softDeleteAsset,
+  restoreAsset,
   deleteAsset,
+  getDeletedAssetsByOwner,
+  getAssetsByOwner,
   getAssetStats,
   detectMediaType,
   createAssetReport,
-  getModerationQueue
+  getModerationQueue,
+  createShareLink,
+  listShareLinks,
+  revokeShareLink,
+  getActiveShareLinkByToken,
+  sanitizeShareLink
 };

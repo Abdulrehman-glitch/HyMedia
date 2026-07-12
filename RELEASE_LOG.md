@@ -1,5 +1,31 @@
 # HyMedia Release Log
 
+## 1.3.0 - Account lifecycle and sharing release
+
+Date: 2026-07-12
+
+Shipped:
+
+- Added session/device listing and individual session revocation.
+- Added account data export and account deletion/anonymisation endpoints.
+- Added expiring, revocable, token-hashed share links for owned assets.
+- Added shared media streaming through the API without exposing Blob URLs.
+- Changed asset delete to soft delete with recycle-bin listing, restore, and permanent purge.
+- Added permanent purge Blob cleanup.
+- Split public asset updates from internal system/moderation updates.
+- Added account operations UI for sessions, recycle bin, export, and delete account.
+- Added owner share-link action in asset cards and detail views.
+- Added status matrix for requested industry-grade capabilities.
+
+Verification:
+
+- Backend syntax: `npm run check`
+- Backend tests: `npm test`
+- Backend audit: `npm audit --audit-level=moderate`
+- Frontend syntax: `npm run check`
+- Frontend tests: `npm test`
+- Frontend audit: `npm audit --audit-level=moderate`
+
 ## 1.2.0 - Production hardening release
 
 Date: 2026-07-12

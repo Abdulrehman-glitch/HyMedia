@@ -74,3 +74,13 @@ test("index includes admin role management hooks", () => {
   assert.match(index, /id="adminUsersList"/);
   assert.match(index, /id="refreshAdminUsersBtn"/);
 });
+
+test("index includes account operations hooks", () => {
+  const index = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+
+  assert.match(index, /id="accountPanel"/);
+  assert.match(index, /id="sessionsList"/);
+  assert.match(index, /id="recycleList"/);
+  assert.match(index, /id="exportAccountBtn"/);
+  assert.match(index, /id="deleteAccountBtn"/);
+});

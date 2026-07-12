@@ -149,17 +149,30 @@ app.get("/api/v1/openapi.json", (req, res) => {
       "/auth/refresh": { post: { summary: "Rotate refresh session and renew access cookie." } },
       "/auth/logout": { post: { summary: "Revoke current refresh session." } },
       "/auth/me": { get: { summary: "Return current authenticated user." } },
+      "/auth/sessions": { get: { summary: "List current user's sessions/devices." } },
+      "/auth/sessions/{sessionId}": { delete: { summary: "Revoke one user session." } },
+      "/auth/export": { get: { summary: "Export account data for portability/privacy requests." } },
+      "/auth/account": { delete: { summary: "Delete the current account and revoke sessions." } },
       "/assets": {
         get: { summary: "List assets visible to the current user." },
         post: { summary: "Create authenticated metadata-only asset." }
       },
       "/assets/upload": { post: { summary: "Upload media and create asset metadata." } },
+      "/assets/recycle-bin": { get: { summary: "List deleted assets owned by the current user." } },
+      "/assets/share/{token}/media": { get: { summary: "Stream media using an active expiring share link." } },
       "/assets/{assetId}": {
         get: { summary: "Get one asset if visible to the current user." },
         put: { summary: "Update owner-managed asset fields." },
-        delete: { summary: "Delete an owned asset and linked blob." }
+        delete: { summary: "Move an owned asset to the recycle bin." }
       },
       "/assets/{assetId}/media": { get: { summary: "Stream authorised asset media with Range support." } },
+      "/assets/{assetId}/share-links": {
+        get: { summary: "List active and revoked share links for an owned asset." },
+        post: { summary: "Create an expiring share link for an owned asset." }
+      },
+      "/assets/{assetId}/restore": { post: { summary: "Restore an asset from the recycle bin." } },
+      "/assets/{assetId}/purge": { delete: { summary: "Permanently delete recycled metadata and blob media." } },
+      "/assets/share-links/{shareId}": { delete: { summary: "Revoke one share link." } },
       "/assets/{assetId}/report": { post: { summary: "Report visible media for moderation." } },
       "/moderation/queue": { get: { summary: "Moderator queue for reported/quarantined assets." } },
       "/moderation/{assetId}/decision": { post: { summary: "Apply a moderator decision." } },

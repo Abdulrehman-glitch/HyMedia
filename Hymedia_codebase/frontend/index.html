@@ -216,6 +216,33 @@
         <div id="adminUsersList" class="admin-list" aria-live="polite"></div>
       </section>
 
+      <section id="accountPanel" class="panel account-panel hidden" aria-labelledby="accountTitle">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Account operations</p>
+            <h2 id="accountTitle">Sessions and recovery</h2>
+          </div>
+          <div class="toolbar">
+            <button id="refreshSessionsBtn" class="btn btn-ghost" type="button">Refresh sessions</button>
+            <button id="exportAccountBtn" class="btn btn-ghost" type="button">Export data</button>
+            <button id="deleteAccountBtn" class="btn btn-danger" type="button">Delete account</button>
+          </div>
+        </div>
+
+        <div class="ops-grid">
+          <article>
+            <h3>Active sessions</h3>
+            <p id="sessionsStatus" class="queue-status">Sign in to review logged-in devices.</p>
+            <div id="sessionsList" class="admin-list" aria-live="polite"></div>
+          </article>
+          <article>
+            <h3>Recycle bin</h3>
+            <p id="recycleStatus" class="queue-status">Deleted assets appear here before permanent purge.</p>
+            <div id="recycleList" class="admin-list" aria-live="polite"></div>
+          </article>
+        </div>
+      </section>
+
       <section id="roadmapPanel" class="premium-strip" aria-label="Premium platform capabilities">
         <article>
           <span>Next layer</span>

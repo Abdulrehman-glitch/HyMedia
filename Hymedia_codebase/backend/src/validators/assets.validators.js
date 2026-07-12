@@ -65,11 +65,19 @@ const moderationDecisionSchema = z
   })
   .strict();
 
+const shareLinkCreateSchema = z
+  .object({
+    expiresInHours: z.number().int().min(1).max(24 * 30).optional(),
+    permission: z.enum(["view"]).optional()
+  })
+  .strict();
+
 module.exports = {
   assetCreateSchema,
   assetUpdateSchema,
   reportAssetSchema,
   moderationDecisionSchema,
+  shareLinkCreateSchema,
   visibilitySchema,
   visibilityInputSchema,
   normalizeVisibilityInput,

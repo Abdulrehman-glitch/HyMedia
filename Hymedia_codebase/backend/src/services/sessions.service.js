@@ -22,6 +22,24 @@ function parseRefreshToken(refreshToken = "") {
   return { sessionId, secret };
 }
 
+function sanitizeSession(session, currentSessionId = "") {
+  if (!session) return null;
+
+  return {
+    sessionId: session.sessionId,
+    userId: session.userId,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    lastUsedAt: session.lastUsedAt || null,
+    expiresAt: session.expiresAt,
+    revokedAt: session.revokedAt || null,
+    revokedReason: session.revokedReason || null,
+    userAgent: session.userAgent || "",
+    ipAddress: session.ipAddress || "",
+    current: Boolean(currentSessionId && currentSessionId === session.sessionId)
+  };
+}
+
 async function createRefreshSession(user, metadata = {}) {
   const container = getCosmosUsersContainer();
   const now = new Date().toISOString();
@@ -83,6 +101,60 @@ async function revokeRefreshSession(refreshToken) {
   });
 }
 
+async function listUserSessions(userId, currentRefreshToken = "") {
+  const container = getCosmosUsersContainer();
+  const parsed = parseRefreshToken(currentRefreshToken);
+
+  const { resources } = await container.items
+    .query({
+      query: `
+        SELECT * FROM c
+        WHERE c.type = @type AND c.userId = @userId
+        ORDER BY c.updatedAt DESC
+      `,
+      parameters: [
+        { name: "@type", value: "session" },
+        { name: "@userId", value: userId }
+      ]
+    })
+    .fetchAll();
+
+  return resources.map((session) => sanitizeSession(session, parsed?.sessionId || ""));
+}
+
+async function revokeSessionById(userId, sessionId, reason = "user-revoked") {
+  const session = await readSession(sessionId);
+
+  if (!session || session.userId !== userId) {
+    return null;
+  }
+
+  const revoked = await replaceSession({
+    ...session,
+    revokedAt: new Date().toISOString(),
+    revokedReason: reason,
+    updatedAt: new Date().toISOString()
+  });
+
+  return sanitizeSession(revoked);
+}
+
+async function revokeAllUserSessions(userId, reason = "account-deleted") {
+  const sessions = await listUserSessions(userId);
+  const revoked = [];
+
+  for (const session of sessions) {
+    if (!session.revokedAt) {
+      const revokedSession = await revokeSessionById(userId, session.sessionId, reason);
+      if (revokedSession) {
+        revoked.push(revokedSession);
+      }
+    }
+  }
+
+  return revoked;
+}
+
 async function rotateRefreshSession(refreshToken, metadata = {}) {
   const parsed = parseRefreshToken(refreshToken);
   if (!parsed) return null;
@@ -136,5 +208,10 @@ module.exports = {
   REFRESH_TOKEN_DAYS,
   createRefreshSession,
   rotateRefreshSession,
-  revokeRefreshSession
+  revokeRefreshSession,
+  listUserSessions,
+  revokeSessionById,
+  revokeAllUserSessions,
+  parseRefreshToken,
+  sanitizeSession
 };

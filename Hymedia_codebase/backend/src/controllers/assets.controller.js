@@ -3,10 +3,18 @@ const {
   getAllAssets,
   getAssetById,
   updateAsset,
+  updateAssetSystemFields,
   deleteAsset,
+  softDeleteAsset,
+  restoreAsset,
+  getDeletedAssetsByOwner,
   detectMediaType,
   createAssetReport,
-  getModerationQueue
+  getModerationQueue,
+  createShareLink,
+  listShareLinks,
+  revokeShareLink,
+  getActiveShareLinkByToken
 } = require("../services/cosmos-assets.service");
 
 const fs = require("fs");
@@ -73,8 +81,13 @@ function canManageAsset(user, asset) {
   return Boolean(asset.ownerId && asset.ownerId === user.userId);
 }
 
+function isDeleted(asset) {
+  return Boolean(asset?.deletedAt);
+}
+
 function canViewAsset(user, asset) {
   if (!asset) return false;
+  if (isDeleted(asset)) return canManageAsset(user, asset);
   if (asset.moderationStatus === MODERATION_STATUS.REMOVED) return isModerator(user);
   if (asset.moderationStatus === MODERATION_STATUS.QUARANTINED) {
     return canManageAsset(user, asset) || isModerator(user);
@@ -85,6 +98,7 @@ function canViewAsset(user, asset) {
 }
 
 function visibleToUser(user, asset) {
+  if (isDeleted(asset)) return false;
   if (asset.moderationStatus === MODERATION_STATUS.REMOVED) return isModerator(user);
   if (asset.moderationStatus === MODERATION_STATUS.QUARANTINED && !canManageAsset(user, asset)) {
     return isModerator(user);
@@ -184,7 +198,7 @@ async function getSingleAsset(req, res, next) {
     const { assetId } = req.params;
     const asset = await getAssetById(assetId);
 
-    if (!asset) {
+    if (!asset || (isDeleted(asset) && !canManageAsset(req.user, asset))) {
       return res.status(404).json({
         success: false,
         message: "Asset not found"
@@ -340,7 +354,7 @@ async function streamAssetMedia(req, res, next) {
     const { assetId } = req.params;
     const asset = await getAssetById(assetId);
 
-    if (!asset || !asset.blobName) {
+    if (!asset || !asset.blobName || isDeleted(asset)) {
       return res.status(404).json({
         success: false,
         message: "Asset media not found."
@@ -399,7 +413,7 @@ async function updateExistingAsset(req, res, next) {
     const { assetId } = req.params;
     const existingAsset = await getAssetById(assetId);
 
-    if (!existingAsset) {
+    if (!existingAsset || isDeleted(existingAsset)) {
       return res.status(404).json({
         success: false,
         message: "Asset not found"
@@ -418,8 +432,8 @@ async function updateExistingAsset(req, res, next) {
       ...req.body
     });
 
-    const updatedAsset = await updateAsset(assetId, {
-      ...req.body,
+    await updateAsset(assetId, req.body);
+    const updatedAsset = await updateAssetSystemFields(assetId, {
       ...moderation,
       isSensitive: moderation.moderationStatus === MODERATION_STATUS.SENSITIVE || req.body.isSensitive
     });
@@ -460,11 +474,7 @@ async function deleteExistingAsset(req, res, next) {
       });
     }
 
-    if (existingAsset.blobName) {
-      await deleteBlobIfExists(existingAsset.blobName);
-    }
-
-    const deletedAsset = await deleteAsset(assetId);
+    const deletedAsset = await softDeleteAsset(assetId, req.user.userId);
 
     await auditFromRequest(req, {
       action: "asset.delete",
@@ -475,9 +485,241 @@ async function deleteExistingAsset(req, res, next) {
 
     res.status(200).json({
       success: true,
-      message: "HyMedia asset and linked media deleted successfully.",
+      message: "HyMedia asset moved to recycle bin.",
       data: deletedAsset
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function restoreDeletedAsset(req, res, next) {
+  try {
+    const { assetId } = req.params;
+    const existingAsset = await getAssetById(assetId);
+
+    if (!existingAsset || !isDeleted(existingAsset)) {
+      return res.status(404).json({
+        success: false,
+        message: "Deleted asset not found."
+      });
+    }
+
+    if (!canManageAsset(req.user, existingAsset)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the asset owner or an administrator can restore this asset."
+      });
+    }
+
+    const restoredAsset = await restoreAsset(assetId);
+
+    await auditFromRequest(req, {
+      action: "asset.restore",
+      targetType: "asset",
+      targetId: assetId
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Asset restored.",
+      data: restoredAsset
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function purgeDeletedAsset(req, res, next) {
+  try {
+    const { assetId } = req.params;
+    const existingAsset = await getAssetById(assetId);
+
+    if (!existingAsset || !isDeleted(existingAsset)) {
+      return res.status(404).json({
+        success: false,
+        message: "Deleted asset not found."
+      });
+    }
+
+    if (!canManageAsset(req.user, existingAsset)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the asset owner or an administrator can permanently delete this asset."
+      });
+    }
+
+    if (existingAsset.blobName) {
+      await deleteBlobIfExists(existingAsset.blobName);
+    }
+
+    const deletedAsset = await deleteAsset(assetId);
+
+    await auditFromRequest(req, {
+      action: "asset.purge",
+      targetType: "asset",
+      targetId: assetId,
+      metadata: { blobName: existingAsset.blobName || "" }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Asset permanently deleted.",
+      data: deletedAsset
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function recycleBin(req, res, next) {
+  try {
+    const assets = await getDeletedAssetsByOwner(req.user.userId, {
+      limit: req.query.limit,
+      offset: req.query.offset
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: assets.length,
+      data: assets
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function createAssetShareLink(req, res, next) {
+  try {
+    const { assetId } = req.params;
+    const asset = await getAssetById(assetId);
+
+    if (!asset || isDeleted(asset)) {
+      return res.status(404).json({
+        success: false,
+        message: "Asset not found."
+      });
+    }
+
+    if (!canManageAsset(req.user, asset)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the asset owner or an administrator can create share links."
+      });
+    }
+
+    const shareLink = await createShareLink(asset, req.body);
+    const shareUrl = `${req.protocol}://${req.get("host")}/api/v1/assets/share/${shareLink.token}/media`;
+
+    await auditFromRequest(req, {
+      action: "asset.share.create",
+      targetType: "asset",
+      targetId: assetId,
+      metadata: { shareId: shareLink.shareId, expiresAt: shareLink.expiresAt }
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Share link created.",
+      data: {
+        ...shareLink,
+        shareUrl
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function listAssetShareLinks(req, res, next) {
+  try {
+    const { assetId } = req.params;
+    const asset = await getAssetById(assetId);
+
+    if (!asset || isDeleted(asset)) {
+      return res.status(404).json({
+        success: false,
+        message: "Asset not found."
+      });
+    }
+
+    if (!canManageAsset(req.user, asset)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the asset owner or an administrator can list share links."
+      });
+    }
+
+    const shareLinks = await listShareLinks(assetId);
+
+    return res.status(200).json({
+      success: true,
+      count: shareLinks.length,
+      data: shareLinks
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function revokeAssetShareLink(req, res, next) {
+  try {
+    const { shareId } = req.params;
+    const revoked = await revokeShareLink(shareId, req.user.userId);
+
+    if (!revoked) {
+      return res.status(404).json({
+        success: false,
+        message: "Share link not found."
+      });
+    }
+
+    await auditFromRequest(req, {
+      action: "asset.share.revoke",
+      targetType: "share-link",
+      targetId: shareId
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Share link revoked.",
+      data: revoked
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function streamSharedAssetMedia(req, res, next) {
+  try {
+    const shareLink = await getActiveShareLinkByToken(req.params.token);
+
+    if (!shareLink) {
+      return res.status(404).json({
+        success: false,
+        message: "Share link not found or expired."
+      });
+    }
+
+    const asset = await getAssetById(shareLink.assetId);
+
+    if (!asset || !asset.blobName || isDeleted(asset)) {
+      return res.status(404).json({
+        success: false,
+        message: "Shared media not found."
+      });
+    }
+
+    if ([MODERATION_STATUS.QUARANTINED, MODERATION_STATUS.REMOVED].includes(asset.moderationStatus)) {
+      return res.status(403).json({
+        success: false,
+        message: "Shared media is unavailable while under moderation."
+      });
+    }
+
+    req.params.assetId = asset.assetId;
+    req.user = { userId: asset.ownerId, role: "share-link" };
+    return streamAssetMedia(req, res, next);
   } catch (error) {
     next(error);
   }
@@ -551,7 +793,7 @@ async function decideModeration(req, res, next) {
     }
 
     const updates = applyModeratorDecision(asset, req.body.decision, req.body.note || "");
-    const updatedAsset = await updateAsset(assetId, updates);
+    const updatedAsset = await updateAssetSystemFields(assetId, updates);
 
     await auditFromRequest(req, {
       action: "moderation.decision",
@@ -595,8 +837,15 @@ module.exports = {
   streamAssetMedia,
   updateExistingAsset,
   deleteExistingAsset,
+  restoreDeletedAsset,
+  purgeDeletedAsset,
+  recycleBin,
   assetStats,
   reportAsset,
   moderationQueue,
-  decideModeration
+  decideModeration,
+  createAssetShareLink,
+  listAssetShareLinks,
+  revokeAssetShareLink,
+  streamSharedAssetMedia
 };

@@ -6,6 +6,8 @@ const state = {
   assets: [],
   moderationQueue: [],
   users: [],
+  sessions: [],
+  recycleBin: [],
   revealedAssets: new Set(),
   currentUser: null,
   search: "",
@@ -70,7 +72,15 @@ const elements = {
   adminPanel: qs("#adminPanel"),
   adminUsersList: qs("#adminUsersList"),
   adminUsersStatus: qs("#adminUsersStatus"),
-  refreshAdminUsersBtn: qs("#refreshAdminUsersBtn")
+  refreshAdminUsersBtn: qs("#refreshAdminUsersBtn"),
+  accountPanel: qs("#accountPanel"),
+  sessionsList: qs("#sessionsList"),
+  sessionsStatus: qs("#sessionsStatus"),
+  refreshSessionsBtn: qs("#refreshSessionsBtn"),
+  recycleList: qs("#recycleList"),
+  recycleStatus: qs("#recycleStatus"),
+  exportAccountBtn: qs("#exportAccountBtn"),
+  deleteAccountBtn: qs("#deleteAccountBtn")
 };
 
 function escapeHtml(value = "") {
@@ -171,6 +181,7 @@ function updateAuthStatus() {
   elements.moderationPanel.classList.toggle("hidden", !canModerate);
   elements.adminNavLink.classList.toggle("hidden", !canAdmin);
   elements.adminPanel.classList.toggle("hidden", !canAdmin);
+  elements.accountPanel.classList.toggle("hidden", !state.currentUser);
 
   if (!canModerate) {
     state.moderationQueue = [];
@@ -182,6 +193,15 @@ function updateAuthStatus() {
     state.users = [];
     elements.adminUsersList.innerHTML = "";
     elements.adminUsersStatus.textContent = "Sign in as an administrator to manage user roles.";
+  }
+
+  if (!state.currentUser) {
+    state.sessions = [];
+    state.recycleBin = [];
+    elements.sessionsList.innerHTML = "";
+    elements.recycleList.innerHTML = "";
+    elements.sessionsStatus.textContent = "Sign in to review logged-in devices.";
+    elements.recycleStatus.textContent = "Deleted assets appear here before permanent purge.";
   }
 }
 
@@ -515,6 +535,7 @@ function renderAssets() {
         ? `
             <div class="card-actions">
               <button class="btn btn-ghost small" type="button" data-action="edit" data-id="${escapeHtml(asset.assetId)}">Edit</button>
+              <button class="btn btn-ghost small" type="button" data-action="share" data-id="${escapeHtml(asset.assetId)}">Share</button>
               <button class="btn btn-danger small" type="button" data-action="delete" data-id="${escapeHtml(asset.assetId)}">Delete</button>
             </div>
           `
@@ -777,6 +798,7 @@ function openAssetView(assetId) {
     ? `
         <div class="modal-actions">
           <button class="btn btn-ghost" type="button" data-action="edit" data-id="${escapeHtml(asset.assetId)}">Edit metadata</button>
+          <button class="btn btn-ghost" type="button" data-action="share" data-id="${escapeHtml(asset.assetId)}">Create share link</button>
           <button class="btn btn-danger" type="button" data-action="delete" data-id="${escapeHtml(asset.assetId)}">Delete asset</button>
         </div>
       `
@@ -885,7 +907,7 @@ async function deleteAsset(assetId) {
     return;
   }
 
-  if (!window.confirm("Delete this asset and its linked media file?")) return;
+  if (!window.confirm("Move this asset to the recycle bin?")) return;
 
   try {
     await fetchJson(`${API_BASE_URL}/api/v1/assets/${encodeURIComponent(assetId)}`, {
@@ -894,7 +916,214 @@ async function deleteAsset(assetId) {
     });
 
     closeAssetView();
-    showToast("Asset deleted.");
+    showToast("Asset moved to recycle bin.");
+    await refreshDashboard();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function createShareLinkForAsset(assetId, button) {
+  const expiresInHours = Number(window.prompt("Share link lifetime in hours, 1-720.", "24"));
+
+  if (!Number.isFinite(expiresInHours)) return;
+
+  setBusy(button, true, "Sharing...");
+
+  try {
+    const response = await fetchJson(`${API_BASE_URL}/api/v1/assets/${encodeURIComponent(assetId)}/share-links`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      body: JSON.stringify({ expiresInHours })
+    });
+
+    const shareUrl = response.data?.shareUrl;
+    if (shareUrl && navigator.clipboard) {
+      await navigator.clipboard.writeText(shareUrl);
+      showToast("Share link copied.");
+    } else if (shareUrl) {
+      showToast(shareUrl);
+    } else {
+      showToast("Share link created.");
+    }
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(button, false);
+  }
+}
+
+function renderSessions() {
+  if (!state.currentUser) return;
+
+  if (!state.sessions.length) {
+    elements.sessionsList.innerHTML = '<p class="empty-state">No sessions found.</p>';
+    elements.sessionsStatus.textContent = "No sessions found.";
+    return;
+  }
+
+  elements.sessionsStatus.textContent = `${state.sessions.length} session${state.sessions.length === 1 ? "" : "s"} loaded.`;
+  elements.sessionsList.innerHTML = state.sessions
+    .map((session) => `
+      <article class="admin-user-row">
+        <div class="admin-user-main">
+          <h3>${session.current ? "Current session" : "Signed-in device"}</h3>
+          <p>${escapeHtml(session.userAgent || "Unknown device")}</p>
+          <dl class="meta-grid admin-user-meta">
+            <dt>IP</dt><dd>${escapeHtml(session.ipAddress || "N/A")}</dd>
+            <dt>Last used</dt><dd>${escapeHtml(session.lastUsedAt ? new Date(session.lastUsedAt).toLocaleString() : "N/A")}</dd>
+            <dt>Expires</dt><dd>${escapeHtml(session.expiresAt ? new Date(session.expiresAt).toLocaleString() : "N/A")}</dd>
+            <dt>Revoked</dt><dd>${session.revokedAt ? "Yes" : "No"}</dd>
+          </dl>
+        </div>
+        <div class="admin-role-controls">
+          <button class="btn btn-danger small" type="button" data-action="session-revoke" data-id="${escapeHtml(session.sessionId)}" ${session.revokedAt ? "disabled" : ""}>Revoke</button>
+        </div>
+      </article>
+    `)
+    .join("");
+}
+
+async function loadSessions() {
+  if (!state.currentUser) return;
+
+  elements.sessionsStatus.textContent = "Loading sessions...";
+  elements.sessionsList.innerHTML = skeletonCards();
+
+  try {
+    const response = await fetchJson(`${API_BASE_URL}/api/v1/auth/sessions`);
+    state.sessions = response.data || [];
+    renderSessions();
+  } catch (error) {
+    elements.sessionsStatus.textContent = "Sessions failed to load.";
+    elements.sessionsList.innerHTML = `<p class="empty-state">Unable to load sessions. ${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function revokeSession(sessionId, button) {
+  if (!window.confirm("Revoke this session?")) return;
+
+  setBusy(button, true, "Revoking...");
+
+  try {
+    await fetchJson(`${API_BASE_URL}/api/v1/auth/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "DELETE"
+    });
+    showToast("Session revoked.");
+    await loadSessions();
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(button, false);
+  }
+}
+
+function renderRecycleBin() {
+  if (!state.currentUser) return;
+
+  if (!state.recycleBin.length) {
+    elements.recycleList.innerHTML = '<p class="empty-state">Recycle bin is empty.</p>';
+    elements.recycleStatus.textContent = "Recycle bin empty.";
+    return;
+  }
+
+  elements.recycleStatus.textContent = `${state.recycleBin.length} deleted asset${state.recycleBin.length === 1 ? "" : "s"}.`;
+  elements.recycleList.innerHTML = state.recycleBin
+    .map((asset) => `
+      <article class="admin-user-row">
+        <div class="admin-user-main">
+          <h3>${escapeHtml(asset.title || "Untitled asset")}</h3>
+          <p>${escapeHtml(asset.caption || "No caption provided.")}</p>
+          <dl class="meta-grid admin-user-meta">
+            <dt>Type</dt><dd>${escapeHtml(asset.mediaType || "N/A")}</dd>
+            <dt>Deleted</dt><dd>${escapeHtml(asset.deletedAt ? new Date(asset.deletedAt).toLocaleString() : "N/A")}</dd>
+          </dl>
+        </div>
+        <div class="admin-role-controls">
+          <button class="btn btn-ghost small" type="button" data-action="asset-restore" data-id="${escapeHtml(asset.assetId)}">Restore</button>
+          <button class="btn btn-danger small" type="button" data-action="asset-purge" data-id="${escapeHtml(asset.assetId)}">Purge</button>
+        </div>
+      </article>
+    `)
+    .join("");
+}
+
+async function loadRecycleBin() {
+  if (!state.currentUser) return;
+
+  elements.recycleStatus.textContent = "Loading recycle bin...";
+  elements.recycleList.innerHTML = skeletonCards();
+
+  try {
+    const response = await fetchJson(`${API_BASE_URL}/api/v1/assets/recycle-bin`);
+    state.recycleBin = response.data || [];
+    renderRecycleBin();
+  } catch (error) {
+    elements.recycleStatus.textContent = "Recycle bin failed to load.";
+    elements.recycleList.innerHTML = `<p class="empty-state">Unable to load recycle bin. ${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function restoreAsset(assetId, button) {
+  setBusy(button, true, "Restoring...");
+
+  try {
+    await fetchJson(`${API_BASE_URL}/api/v1/assets/${encodeURIComponent(assetId)}/restore`, {
+      method: "POST"
+    });
+    showToast("Asset restored.");
+    await refreshDashboard();
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(button, false);
+  }
+}
+
+async function purgeAsset(assetId, button) {
+  if (!window.confirm("Permanently delete this asset and linked media?")) return;
+
+  setBusy(button, true, "Purging...");
+
+  try {
+    await fetchJson(`${API_BASE_URL}/api/v1/assets/${encodeURIComponent(assetId)}/purge`, {
+      method: "DELETE"
+    });
+    showToast("Asset permanently deleted.");
+    await refreshDashboard();
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    setBusy(button, false);
+  }
+}
+
+async function exportAccountData() {
+  try {
+    const response = await fetchJson(`${API_BASE_URL}/api/v1/auth/export`);
+    const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `hymedia-account-export-${Date.now()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast("Account export generated.");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function deleteAccount() {
+  if (!window.confirm("Delete this account? This revokes sessions and anonymises the user record.")) return;
+
+  try {
+    await fetchJson(`${API_BASE_URL}/api/v1/auth/account`, {
+      method: "DELETE"
+    });
+    state.currentUser = null;
+    updateAuthStatus();
+    showToast("Account deleted.");
     await refreshDashboard();
   } catch (error) {
     showToast(error.message);
@@ -930,7 +1159,15 @@ async function reportAsset(assetId) {
 }
 
 async function refreshDashboard() {
-  await Promise.all([loadHealth(), loadStats(), loadAssets(), loadModerationQueue(), loadAdminUsers()]);
+  await Promise.all([
+    loadHealth(),
+    loadStats(),
+    loadAssets(),
+    loadModerationQueue(),
+    loadAdminUsers(),
+    loadSessions(),
+    loadRecycleBin()
+  ]);
 }
 
 function handleAssetActions(event) {
@@ -955,6 +1192,10 @@ function handleAssetActions(event) {
   if (action === "delete") {
     event.stopPropagation();
     deleteAsset(id);
+  }
+  if (action === "share") {
+    event.stopPropagation();
+    createShareLinkForAsset(id, target);
   }
   if (action === "report") {
     event.stopPropagation();
@@ -983,6 +1224,18 @@ function handleAssetActions(event) {
   if (action === "admin-role-save") {
     event.stopPropagation();
     saveUserRole(id, target);
+  }
+  if (action === "session-revoke") {
+    event.stopPropagation();
+    revokeSession(id, target);
+  }
+  if (action === "asset-restore") {
+    event.stopPropagation();
+    restoreAsset(id, target);
+  }
+  if (action === "asset-purge") {
+    event.stopPropagation();
+    purgeAsset(id, target);
   }
 }
 
@@ -1032,6 +1285,11 @@ function bindEvents() {
   elements.refreshModerationBtn.addEventListener("click", loadModerationQueue);
   elements.adminUsersList.addEventListener("click", handleAssetActions);
   elements.refreshAdminUsersBtn.addEventListener("click", loadAdminUsers);
+  elements.sessionsList.addEventListener("click", handleAssetActions);
+  elements.recycleList.addEventListener("click", handleAssetActions);
+  elements.refreshSessionsBtn.addEventListener("click", loadSessions);
+  elements.exportAccountBtn.addEventListener("click", exportAccountData);
+  elements.deleteAccountBtn.addEventListener("click", deleteAccount);
 
   elements.searchInput.addEventListener("input", (event) => {
     state.search = event.target.value;

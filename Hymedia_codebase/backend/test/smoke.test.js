@@ -12,9 +12,14 @@ const {
   applyModeratorDecision
 } = require("../src/services/moderation.service");
 const { signupSchema } = require("../src/validators/auth.validators");
-const { assetCreateSchema, assetUpdateSchema } = require("../src/validators/assets.validators");
+const {
+  assetCreateSchema,
+  assetUpdateSchema,
+  shareLinkCreateSchema
+} = require("../src/validators/assets.validators");
 const { updateUserRoleSchema } = require("../src/validators/admin.validators");
 const { getJwtSecret } = require("../src/middleware/auth.middleware");
+const { parseRefreshToken, sanitizeSession } = require("../src/services/sessions.service");
 
 function request(appInstance, path) {
   return new Promise((resolve, reject) => {
@@ -93,6 +98,31 @@ test("JWT secret has no source-code fallback", () => {
 test("admin role validation allows only supported roles", () => {
   assert.equal(updateUserRoleSchema.safeParse({ role: "moderator" }).success, true);
   assert.equal(updateUserRoleSchema.safeParse({ role: "owner" }).success, false);
+});
+
+test("share link validation limits lifetime", () => {
+  assert.equal(shareLinkCreateSchema.safeParse({ expiresInHours: 24, permission: "view" }).success, true);
+  assert.equal(shareLinkCreateSchema.safeParse({ expiresInHours: 9999, permission: "view" }).success, false);
+  assert.equal(shareLinkCreateSchema.safeParse({ expiresInHours: 12, permission: "download" }).success, false);
+});
+
+test("session helpers parse tokens and hide token hashes", () => {
+  assert.deepEqual(parseRefreshToken("session-id.secret-value"), {
+    sessionId: "session-id",
+    secret: "secret-value"
+  });
+
+  const sanitized = sanitizeSession({
+    sessionId: "session-id",
+    userId: "user-id",
+    tokenHash: "secret-hash",
+    createdAt: "2026-07-12T00:00:00.000Z",
+    updatedAt: "2026-07-12T00:00:00.000Z",
+    expiresAt: "2026-07-19T00:00:00.000Z"
+  }, "session-id");
+
+  assert.equal(sanitized.current, true);
+  assert.equal(Object.hasOwn(sanitized, "tokenHash"), false);
 });
 
 test("local moderation quarantines high-risk text and supports decisions", () => {
